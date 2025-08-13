@@ -1,0 +1,17 @@
+:root {
+  --bg: #0b0d12;
+  --bg-elev: #11151d;
+  --text: #e7ecf2;
+  --muted: #aab4c3;
+  --brand: #7dd3fc;       /* “arcane blue” */
+  --brand-2: #c084fc;     /* “ether violet” */
+  --surface: #161b25;
+  --ring: 0 0 0 3px rgba(125, 211, 252, 0.35);
+  --radius: 12px;
+  --shadow: 0 10px 30px rgba(0,0,0,0.35);
+  --maxw: 1200px;
+  --nav-h: 60px;
+}
+@media (prefers-color-scheme: light) {
+  :root { --bg:#f7f9fc; --bg-elev:#fff; --text:#101218; --muted:#5a6676; --surface:#fff; }
+}
