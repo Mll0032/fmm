@@ -1,0 +1,37 @@
+.wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.pill {
+  width: 40px;
+  height: 20px;
+  background: var(--surface);
+  border: 1px solid color-mix(in oklab, var(--text) 15%, transparent);
+  border-radius: 999px;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: background 0.2s ease;
+}
+
+.pill.on {
+  background: var(--brand);
+}
+
+.thumb {
+  width: 16px;
+  height: 16px;
+  background: var(--text);
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+  transform: translateX(2px);
+}
+
+.pill.on .thumb {
+  transform: translateX(22px);
+}

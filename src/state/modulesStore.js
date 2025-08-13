@@ -89,5 +89,10 @@ export const ModulesStore = {
   remove(id) {
     const mods = read().filter(m => m.id !== id);
     write(mods);
+  },
+  replaceAll(list) {
+    if (!Array.isArray(list)) return;
+    write(list);
   }
+
 };

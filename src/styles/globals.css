@@ -1,5 +1,32 @@
 @import "./theme.css";
 
+:root {
+  font-size: calc(16px * var(--font-scale, 1));
+}
+
+/* High contrast */
+:root[data-high-contrast="true"] {
+  --bg: #000;
+  --bg-elev: #000;
+  --text: #fff;
+  --muted: #ff0;
+  --brand: #0ff;
+  --brand-2: #f0f;
+}
+
+/* Reduced motion */
+:root[data-reduced-motion="true"] * {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* Compact mode */
+:root[data-compact-mode="true"] {
+  --radius: 6px;
+  --maxw: 1000px;
+}
+
+
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; }
 body {
