@@ -1,0 +1,32 @@
+@import "./theme.css";
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  color: var(--text);
+  background: radial-gradient(1200px 600px at 20% 10%, rgba(192,132,252,0.08), transparent 60%),
+              radial-gradient(1000px 500px at 80% 20%, rgba(125,211,252,0.08), transparent 60%),
+              var(--bg);
+}
+
+a { color: inherit; text-decoration: none; }
+button { font: inherit; }
+
+.container {
+  width: 100%;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+/* Accessible skip link */
+.skip-link {
+  position: absolute; left: -999px; top: -999px;
+}
+.skip-link:focus {
+  left: 16px; top: 16px; z-index: 1000;
+  background: var(--surface); color: var(--text);
+  padding: 8px 12px; border-radius: 8px; box-shadow: var(--shadow);
+}
