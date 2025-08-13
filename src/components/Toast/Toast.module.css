@@ -1,0 +1,20 @@
+.toast {
+  position: fixed;
+  inset: auto 16px 16px auto; /* bottom-right */
+  transform: translateY(16px);
+  opacity: 0;
+  transition: opacity 160ms ease, transform 160ms ease;
+  padding: 10px 12px;
+  background: color-mix(in oklab, var(--brand) 25%, var(--bg-elev));
+  border: 1px solid color-mix(in oklab, var(--text) 12%, transparent);
+  color: var(--text);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  pointer-events: none;
+  z-index: 100;
+  font-weight: 600;
+}
+.show {
+  opacity: 1;
+  transform: translateY(0);
+}
