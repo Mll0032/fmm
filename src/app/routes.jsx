@@ -1,6 +1,6 @@
 import React from "react";
 import { Routes, Route } from "react-router-dom";
-import Dashboard from "../pages/Dashboard.jsx";
+import Dashboard from "../pages/Dashboards.jsx";
 import Modules from "../pages/Modules.jsx";
 import Library from "../pages/Library.jsx";
 import Settings from "../pages/Settings.jsx";
