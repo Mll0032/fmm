@@ -18,21 +18,27 @@ function write(items) {
   localStorage.setItem(KEY, JSON.stringify(items));
 }
 
+// ...existing code...
+
 export const DashboardStore = {
-  list() {
-    return read();
-  },
+  list() { return read(); },
   add(item) {
     const items = read();
     items.push({
       id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`,
+      size: 1,            // 1=S, 2=M, 3=L, 4=XL
       ...item
     });
     write(items);
   },
-  remove(id) {
-    write(read().filter(i => i.id !== id));
+  update(id, patch) {
+    const items = read();
+    const idx = items.findIndex(i => i.id === id);
+    if (idx === -1) return;
+    items[idx] = { ...items[idx], ...patch, id: items[idx].id }; // keep id stable
+    write(items);
   },
+  remove(id) { write(read().filter(i => i.id !== id)); },
   move(id, dir) {
     const items = read();
     const idx = items.findIndex(i => i.id === id);
@@ -43,10 +49,7 @@ export const DashboardStore = {
     items.splice(next, 0, it);
     write(items);
   },
-  replaceAll(newList) {
-    write(Array.isArray(newList) ? newList : []);
-  },
-  clear() {
-    write([]);
-  }
+  replaceAll(newList) { write(Array.isArray(newList) ? newList : []); },
+  clear() { write([]); }
 };
+
