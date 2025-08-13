@@ -3,7 +3,7 @@ const KEY = "fizzrix.settings.v1";
 const defaultSettings = {
   theme: "system", // 'light' | 'dark' | 'system'
   highContrast: false,
-  fontSize: "medium", // 'small' | 'medium' | 'large'
+  fontSize: "medium", // 'small' | 'medium' | 'large' | 'xxl'
   reducedMotion: false,
   compactMode: false
 };

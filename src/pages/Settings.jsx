@@ -20,7 +20,16 @@ export default function Settings() {
     }
     root.dataset.theme = mode;
     root.dataset.highContrast = s.highContrast ? "true" : "false";
-    root.style.setProperty("--font-scale", s.fontSize === "small" ? "0.9" : s.fontSize === "large" ? "1.15" : "1");
+    root.style.setProperty(
+  "--font-scale",
+  s.fontSize === "small"
+    ? "0.9"
+    : s.fontSize === "large"
+    ? "1.15"
+    : s.fontSize === "xxl"
+    ? "1.35"
+    : "1"
+);
     root.dataset.reducedMotion = s.reducedMotion ? "true" : "false";
     root.dataset.compactMode = s.compactMode ? "true" : "false";
   }
@@ -124,6 +133,7 @@ export default function Settings() {
           <option value="small">Small</option>
           <option value="medium">Medium</option>
           <option value="large">Large</option>
+          <option value="xxl">XXL</option>
         </select>
       </div>
 
