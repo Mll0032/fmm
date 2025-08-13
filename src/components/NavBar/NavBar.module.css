@@ -1,0 +1,42 @@
+.visually-hidden { position:absolute; left:-9999px; }
+
+.nav { display: contents; }
+
+/* Mobile: burger + slide-down menu */
+.burger {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 36px; border: 0; background: var(--surface); border-radius: 10px;
+  box-shadow: var(--shadow); cursor: pointer;
+}
+.burgerBar {
+  width: 18px; height: 2px; background: var(--text); position: relative;
+}
+.burgerBar::before, .burgerBar::after {
+  content:""; position:absolute; left:0; width: 18px; height: 2px; background: var(--text);
+}
+.burgerBar::before { top: -6px; }
+.burgerBar::after { top: 6px; }
+
+.list {
+  position: absolute; top: var(--nav-h); right: 16px; left: 16px;
+  background: var(--bg-elev); border: 1px solid color-mix(in oklab, var(--text) 10%, transparent);
+  border-radius: var(--radius); padding: 8px; margin: 0; list-style: none;
+  display: none; flex-direction: column; gap: 4px;
+}
+.open { display: flex; }
+
+.link {
+  display: block; padding: 10px 12px; border-radius: 8px; color: var(--muted);
+}
+.link:hover { background: color-mix(in oklab, var(--brand) 12%, transparent); color: var(--text); }
+.active { color: var(--text); outline: var(--ring); }
+
+/* Desktop: inline nav */
+@media (min-width: 800px) {
+  .burger { display: none; }
+  .list {
+    position: static; display: flex; flex-direction: row; gap: 6px;
+    background: transparent; border: 0; padding: 0;
+  }
+  .link { padding: 8px 10px; }
+}

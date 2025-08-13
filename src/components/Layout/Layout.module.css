@@ -1,0 +1,5 @@
+.shell {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: var(--nav-h) 1fr;
+}
