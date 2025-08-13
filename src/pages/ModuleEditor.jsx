@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ModulesStore } from "../state/modulesStore";
 import Toast from "../components/Toast/Toast";
+import ImageField from "../components/ImageField/ImageField";
+
 
 function TextRow({ label, value, onChange, placeholder, multiline = false }) {
   const common = {
@@ -54,17 +56,44 @@ export default function ModuleEditor() {
 
   // Local, editable form state
   const [rename, setRename] = useState(moduleData.name);
-  const [data, setData] = useState(moduleData.data);
+  const [data, setData] = useState(withDefaults(moduleData.data));
   const [dirty, setDirty] = useState(false);
   const [lastSaved, setLastSaved] = useState(moduleData.updatedAt || moduleData.createdAt);
   const [toast, setToast] = useState(false);
 
+function withDefaults(d) {
+  return {
+    mapUrl: d.mapUrl || "",
+    mapImage: d.mapImage || { dataUrl: "", alt: "", showOnDashboard: false },
+
+    introduction: d.introduction || "",
+    introImage: d.introImage || { dataUrl: "", alt: "", showOnDashboard: false },
+
+    overview: d.overview || "",
+    overviewImage: d.overviewImage || { dataUrl: "", alt: "", showOnDashboard: false },
+
+    episodes: (d.episodes || []).map(e => ({
+      id: e.id,
+      title: e.title ?? "",
+      content: e.content ?? "",
+      image: e.image || { dataUrl: "", alt: "", showOnDashboard: false }
+    })),
+
+    appendices: {
+      monsters: d.appendices?.monsters || "",
+      monstersImage: d.appendices?.monstersImage || { dataUrl: "", alt: "", showOnDashboard: false },
+      magicItems: d.appendices?.magicItems || "",
+      magicItemsImage: d.appendices?.magicItemsImage || { dataUrl: "", alt: "", showOnDashboard: false }
+    }
+  };
+}
+  
   // Reset form when switching modules
   useEffect(() => {
     const current = ModulesStore.get(id);
     if (current) {
       setRename(current.name);
-      setData(current.data);
+      setData(withDefaults(current.data));
       setDirty(false);
       setLastSaved(current.updatedAt || current.createdAt);
     }
@@ -89,7 +118,8 @@ export default function ModuleEditor() {
         {
           id: crypto.randomUUID?.() ?? String(Date.now()),
           title: `Episode ${((old.episodes?.length || 0) + 1)}`,
-          content: ""
+          content: "",
+          image: { dataUrl: "", alt: "", showOnDashboard: false }
         }
       ]
     }));
@@ -225,6 +255,11 @@ export default function ModuleEditor() {
             onChange={(v) => update({ mapUrl: v })}
             placeholder="https://… (image link, Notion board, Google Drive, etc.)"
           />
+          <ImageField
+  label="Map Image (JPG)"
+  value={data.mapImage}
+  onChange={(img) => { setData(o => ({ ...o, mapImage: img })); markDirty(); }}
+/>
         </div>
 
         <div
@@ -245,6 +280,12 @@ export default function ModuleEditor() {
             onChange={(v) => update({ introduction: v })}
             placeholder="Hook, stakes, how the players get involved…"
           />
+          <ImageField
+  label="Introduction Image (JPG)"
+  value={data.introImage}
+  onChange={(img) => { setData(o => ({ ...o, introImage: img })); markDirty(); }}
+/>
+
         </div>
 
         <div
@@ -265,6 +306,12 @@ export default function ModuleEditor() {
             onChange={(v) => update({ overview: v })}
             placeholder="Structure, themes, expected level range, major beats…"
           />
+          <ImageField
+  label="Overview Image (JPG)"
+  value={data.overviewImage}
+  onChange={(img) => { setData(o => ({ ...o, overviewImage: img })); markDirty(); }}
+/>
+
         </div>
       </div>
 
@@ -320,6 +367,7 @@ export default function ModuleEditor() {
             borderRadius: 8,
             border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)"
           }}
+          
         />
         <textarea
           rows={6}
@@ -334,6 +382,12 @@ export default function ModuleEditor() {
             border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)"
           }}
         />
+        <ImageField
+  label="Episode Image (JPG)"
+  value={ep.image || { dataUrl: "", alt: "", showOnDashboard: false }}
+  onChange={(img) => updateEpisode(ep.id, { image: img })}
+/>
+
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
           <button
             onClick={() => removeEpisode(ep.id)}
@@ -380,6 +434,14 @@ export default function ModuleEditor() {
             }
             placeholder="Stat blocks, links, custom notes…"
           />
+          <ImageField
+  label="Monsters Appendix Image (JPG)"
+  value={data.appendices.monstersImage}
+  onChange={(img) =>
+    setData(o => ({ ...o, appendices: { ...o.appendices, monstersImage: img } }))
+  }
+/>
+
         </div>
 
         <div
@@ -404,8 +466,17 @@ export default function ModuleEditor() {
               })
             }
             placeholder="Homebrew items, rarity, attunement, effects…"
-          />
+        />
+        <ImageField
+  label="Magic Items Appendix Image (JPG)"
+  value={data.appendices.magicItemsImage}
+  onChange={(img) =>
+    setData(o => ({ ...o, appendices: { ...o.appendices, magicItemsImage: img } }))
+  }
+/>
+
         </div>
+        
       </div>
 
       {/* Toast */}

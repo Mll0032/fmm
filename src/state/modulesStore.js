@@ -40,15 +40,24 @@ export const ModulesStore = {
       updatedAt: new Date().toISOString(),
       // Initial editable structure
       data: {
-        mapUrl: "",
-        introduction: "",
-        overview: "",
-        episodes: [], // [{ id, title, content }]
-        appendices: {
-          monsters: "",
-          magicItems: ""
-        }
-      }
+  mapUrl: "",
+  mapImage: { dataUrl: "", alt: "", showOnDashboard: false },
+
+  introduction: "",
+  introImage: { dataUrl: "", alt: "", showOnDashboard: false },
+
+  overview: "",
+  overviewImage: { dataUrl: "", alt: "", showOnDashboard: false },
+
+  episodes: [], // each: { id, title, content, image: { dataUrl, alt, showOnDashboard } }
+
+  appendices: {
+    monsters: "",
+    monstersImage: { dataUrl: "", alt: "", showOnDashboard: false },
+    magicItems: "",
+    magicItemsImage: { dataUrl: "", alt: "", showOnDashboard: false }
+  }
+}
     };
     mods.push(module);
     write(mods);
