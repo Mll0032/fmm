@@ -31,6 +31,7 @@ export default function DashboardCard({
   onMoveLeft,
   onMoveRight,
   onResize, // (size: 1|2|3|4)
+  locked = false,
 }) {
   const module = useMemo(() => ModulesStore.get(item.moduleId), [item.moduleId]);
   if (!module) return null;
@@ -44,36 +45,39 @@ export default function DashboardCard({
         <h4 style={{ margin: 0, fontSize: 16 }}>{s.title}</h4>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
           {/* Size control */}
-          <div
-            style={sizeWrap}
-            title="Resize card"
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {[
-              { n: 1, label: "S" },
-              { n: 2, label: "M" },
-              { n: 3, label: "L" },
-              { n: 4, label: "XL" },
-            ].map(opt => (
-              <button
-                key={opt.n}
-                onClick={() => onResize?.(opt.n)}
-                style={sizeBtn(opt.n === (item.size || 1))}
-                aria-pressed={opt.n === (item.size || 1)}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+          {!locked && (
+            <div
+              style={sizeWrap}
+              title="Resize card"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {[{ n: 1, label: "S" }, { n: 2, label: "M" }, { n: 3, label: "L" }, { n: 4, label: "XL" }].map(opt => (
+                <button
+                  key={opt.n}
+                  onClick={() => onResize?.(opt.n)}
+                  style={sizeBtn(opt.n === (item.size || 1))}
+                  aria-pressed={opt.n === (item.size || 1)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
 
-          <button onClick={() => onFocus?.(s)} title="Focus" style={btn("var(--surface)")}>Focus</button>
+          <button onClick={() => onFocus?.(s)} title="Focus" style={btn("var(--surface)")}>
+            Focus
+          </button>
 
-          {showArrows && (
+          {!locked && showArrows && (
             <>
-              <button onClick={onMoveLeft} title="Move left" style={btn("var(--surface)")}>←</button>
+              <button onClick={onMoveLeft}  title="Move left"  style={btn("var(--surface)")}>←</button>
               <button onClick={onMoveRight} title="Move right" style={btn("var(--surface)")}>→</button>
             </>
+          )}
+
+          {!locked && (
+            <button onClick={onRemove} title="Remove" style={btn("transparent", "crimson")}>✕</button>
           )}
         </div>
       </header>
@@ -81,7 +85,6 @@ export default function DashboardCard({
       {showImage && <img src={s.image.dataUrl} alt={s.image.alt || s.title} style={img} />}
 
       {s.text && <div style={body}>{s.text}</div>}
-      <button onClick={onRemove} title="Remove" style={btn("transparent", "crimson")}>✕</button>
     </article>
   );
 }
