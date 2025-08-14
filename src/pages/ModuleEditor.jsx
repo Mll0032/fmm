@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { useNavigate, useParams, useBeforeUnload } from "react-router-dom";
+import { useNavigate, useParams, useBeforeUnload, useLocation } from "react-router-dom";
 import { ModulesStore } from "../state/modulesStore";
 import Toast from "../components/Toast/Toast";
 import ImageField from "../components/ImageField/ImageField";
@@ -41,23 +41,11 @@ export default function ModuleEditor() {
   const navigate = useNavigate();
   const moduleData = useMemo(() => ModulesStore.get(id), [id]);
 
-  // 🚫 Guard
-  if (!moduleData) {
-    return (
-      <section style={{ padding: "20px 0" }}>
-        <p>Module not found.</p>
-        <button onClick={() => navigate("/modules")} style={{ padding: "8px 12px", borderRadius: 8 }}>
-          Back to Modules
-        </button>
-      </section>
-    );
-  }
-
-  // Local, editable form state
-  const [rename, setRename] = useState(moduleData.name);
-  const [data, setData] = useState(withDefaults(moduleData.data));
+  // Local, editable form state - initialize with defaults to avoid conditional hooks
+  const [rename, setRename] = useState(moduleData?.name || "");
+  const [data, setData] = useState(moduleData ? withDefaults(moduleData.data) : withDefaults({}));
   const [dirty, setDirty] = useState(false);
-  const [lastSaved, setLastSaved] = useState(moduleData.updatedAt || moduleData.createdAt);
+  const [lastSaved, setLastSaved] = useState(moduleData?.updatedAt || moduleData?.createdAt || "");
   const [toast, setToast] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState(null);
@@ -113,6 +101,122 @@ export default function ModuleEditor() {
     )
   );
 
+  const location = useLocation();
+
+  // Custom navigation blocking for BrowserRouter compatibility
+  useEffect(() => {
+    if (!dirty) return;
+
+    // Store original navigation functions to restore later
+    const originalPushState = window.history.pushState;
+    const originalReplaceState = window.history.replaceState;
+
+    // Intercept history API calls (used by React Router)
+    window.history.pushState = function(state, title, url) {
+      if (dirty && url && url !== location.pathname) {
+        setShowSaveDialog(true);
+        setPendingNavigation(url);
+        return; // Block the navigation
+      }
+      return originalPushState.apply(window.history, arguments);
+    };
+
+    window.history.replaceState = function(state, title, url) {
+      if (dirty && url && url !== location.pathname) {
+        setShowSaveDialog(true);
+        setPendingNavigation(url);
+        return; // Block the navigation
+      }
+      return originalReplaceState.apply(window.history, arguments);
+    };
+
+    const handleClick = (event) => {
+      if (!dirty) return;
+      
+      // Check for any link or clickable element that might navigate
+      const clickedElement = event.target;
+      
+      // Look for NavLink or any element with navigation attributes
+      const navElement = clickedElement.closest('[class*="link"], a, button');
+      
+      if (navElement) {
+        console.log('Clicked navigation element:', navElement, 'Text:', navElement.textContent);
+        
+        // Check if it's likely a navigation element
+        const isNavLink = navElement.className && navElement.className.includes('link');
+        const isAnchor = navElement.tagName === 'A';
+        const hasHref = navElement.href;
+        
+        if (isNavLink || (isAnchor && hasHref)) {
+          let targetPath = null;
+          
+          if (hasHref) {
+            try {
+              const url = new URL(navElement.href);
+              if (url.origin === window.location.origin) {
+                targetPath = url.pathname;
+              }
+            } catch {
+              // Handle relative URLs
+              targetPath = navElement.getAttribute('href');
+            }
+          }
+          
+          // For NavLink components, we need to check the 'to' prop differently
+          // Since we can't access React props directly, we'll check common navigation paths
+          const navText = navElement.textContent?.toLowerCase().trim();
+          if (!targetPath && navText) {
+            const navMap = {
+              'dashboard': '/',
+              'modules': '/modules',
+              'library': '/library',
+              'settings': '/settings',
+              'about': '/about'
+            };
+            targetPath = navMap[navText];
+          }
+          
+          if (targetPath && targetPath !== location.pathname) {
+            console.log('Blocking navigation to:', targetPath);
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            setShowSaveDialog(true);
+            setPendingNavigation(targetPath);
+            return false;
+          }
+        }
+      }
+    };
+
+    const handlePopState = (event) => {
+      if (dirty) {
+        event.preventDefault();
+        setShowSaveDialog(true);
+        setPendingNavigation(window.location.pathname);
+        // Push current state back to prevent navigation
+        window.history.pushState(null, '', location.pathname);
+      }
+    };
+
+    // Add popstate listener for browser back/forward
+    window.addEventListener('popstate', handlePopState);
+    // Add click listener for navigation links with capture to intercept before React Router
+    document.addEventListener('click', handleClick, true);
+    
+    // Push a dummy state so we can intercept back navigation
+    window.history.pushState(null, '', location.pathname);
+
+    return () => {
+      // Restore original functions
+      window.history.pushState = originalPushState;
+      window.history.replaceState = originalReplaceState;
+      
+      window.removeEventListener('popstate', handlePopState);
+      document.removeEventListener('click', handleClick, true);
+    };
+  }, [dirty, location.pathname]);
+
   // Intercept navigation attempts when there are unsaved changes
   const handleNavigation = useCallback((path) => {
     if (dirty) {
@@ -122,6 +226,18 @@ export default function ModuleEditor() {
       navigate(path);
     }
   }, [dirty, navigate]);
+
+  // 🚫 Guard - moved after all hooks to comply with Rules of Hooks
+  if (!moduleData) {
+    return (
+      <section style={{ padding: "20px 0" }}>
+        <p>Module not found.</p>
+        <button onClick={() => navigate("/modules")} style={{ padding: "8px 12px", borderRadius: 8 }}>
+          Back to Modules
+        </button>
+      </section>
+    );
+  }
 
   // Custom back button with save check
   const handleBack = () => {
@@ -191,8 +307,8 @@ export default function ModuleEditor() {
     setShowSaveDialog(false);
     if (pendingNavigation) {
       navigate(pendingNavigation);
-      setPendingNavigation(null);
     }
+    setPendingNavigation(null);
   }
 
   function handleDiscardAndNavigate() {
@@ -200,8 +316,8 @@ export default function ModuleEditor() {
     setShowSaveDialog(false);
     if (pendingNavigation) {
       navigate(pendingNavigation);
-      setPendingNavigation(null);
     }
+    setPendingNavigation(null);
   }
 
   function formatTS(ts) {
