@@ -69,10 +69,44 @@ export default function ModuleEditor() {
       })),
 
       appendices: {
-        monsters: d.appendices?.monsters || "",
-        monstersImage: d.appendices?.monstersImage || { dataUrl: "", alt: "", showOnDashboard: false },
-        magicItems: d.appendices?.magicItems || "",
-        magicItemsImage: d.appendices?.magicItemsImage || { dataUrl: "", alt: "", showOnDashboard: false }
+        monsters: (() => {
+          const monsters = d.appendices?.monsters;
+          // Handle backward compatibility - if it's a string, convert to array format
+          if (typeof monsters === 'string') {
+            return monsters.trim() ? [{
+              id: (crypto.randomUUID?.() ?? String(Date.now())),
+              name: "Legacy Monster Entry",
+              content: monsters,
+              image: d.appendices?.monstersImage || { dataUrl: "", alt: "", showOnDashboard: false }
+            }] : [];
+          }
+          // Handle new array format
+          return (monsters || []).map(m => ({
+            id: m.id || (crypto.randomUUID?.() ?? String(Date.now())),
+            name: m.name ?? "",
+            content: m.content ?? "",
+            image: m.image || { dataUrl: "", alt: "", showOnDashboard: false }
+          }));
+        })(),
+        magicItems: (() => {
+          const magicItems = d.appendices?.magicItems;
+          // Handle backward compatibility - if it's a string, convert to array format
+          if (typeof magicItems === 'string') {
+            return magicItems.trim() ? [{
+              id: (crypto.randomUUID?.() ?? String(Date.now())),
+              name: "Legacy Magic Item Entry",
+              content: magicItems,
+              image: d.appendices?.magicItemsImage || { dataUrl: "", alt: "", showOnDashboard: false }
+            }] : [];
+          }
+          // Handle new array format
+          return (magicItems || []).map(i => ({
+            id: i.id || (crypto.randomUUID?.() ?? String(Date.now())),
+            name: i.name ?? "",
+            content: i.content ?? "",
+            image: i.image || { dataUrl: "", alt: "", showOnDashboard: false }
+          }));
+        })()
       }
     };
   }
@@ -283,6 +317,90 @@ export default function ModuleEditor() {
     setData((old) => ({
       ...old,
       episodes: (old.episodes || []).filter((e) => e.id !== epId)
+    }));
+    markDirty();
+  }
+
+  // Monster management functions
+  function addMonster() {
+    setData((old) => ({
+      ...old,
+      appendices: {
+        ...old.appendices,
+        monsters: [
+          ...(old.appendices.monsters || []),
+          {
+            id: (crypto.randomUUID?.() ?? String(Date.now())),
+            name: `Monster ${((old.appendices.monsters?.length || 0) + 1)}`,
+            content: "",
+            image: { dataUrl: "", alt: "", showOnDashboard: false }
+          }
+        ]
+      }
+    }));
+    markDirty();
+  }
+
+  function updateMonster(monsterId, patch) {
+    setData((old) => ({
+      ...old,
+      appendices: {
+        ...old.appendices,
+        monsters: (old.appendices.monsters || []).map((m) => (m.id === monsterId ? { ...m, ...patch } : m))
+      }
+    }));
+    markDirty();
+  }
+
+  function removeMonster(monsterId) {
+    setData((old) => ({
+      ...old,
+      appendices: {
+        ...old.appendices,
+        monsters: (old.appendices.monsters || []).filter((m) => m.id !== monsterId)
+      }
+    }));
+    markDirty();
+  }
+
+  // Magic Item management functions
+  function addMagicItem() {
+    setData((old) => ({
+      ...old,
+      appendices: {
+        ...old.appendices,
+        magicItems: [
+          ...(old.appendices.magicItems || []),
+          {
+            id: (crypto.randomUUID?.() ?? String(Date.now())),
+            name: `Magic Item ${((old.appendices.magicItems?.length || 0) + 1)}`,
+            content: "",
+            image: { dataUrl: "", alt: "", showOnDashboard: false }
+          }
+        ]
+      }
+    }));
+    markDirty();
+  }
+
+  function updateMagicItem(itemId, patch) {
+    setData((old) => ({
+      ...old,
+      appendices: {
+        ...old.appendices,
+        magicItems: (old.appendices.magicItems || []).map((i) => (i.id === itemId ? { ...i, ...patch } : i))
+      }
+    }));
+    markDirty();
+  }
+
+  function removeMagicItem(itemId) {
+    setData((old) => ({
+      ...old,
+      appendices: {
+        ...old.appendices,
+        magicItems: (old.appendices.magicItems || []).filter((i) => i.id !== itemId)
+      }
     }));
     markDirty();
   }
@@ -581,26 +699,86 @@ export default function ModuleEditor() {
               border: "1px solid color-mix(in oklab, var(--text) 10%, transparent)"
             }}
           >
-            <h3 style={{ margin: 0 }}>Monsters Appendix</h3>
-            <TextRow
-              label="Monsters"
-              multiline
-              value={data.appendices.monsters}
-              onChange={(v) =>
-                setData((old) => {
-                  const next = { ...old, appendices: { ...old.appendices, monsters: v } };
-                  return next;
-                })
-              }
-              placeholder="Stat blocks, links, custom notes…"
-            />
-            <ImageField
-              label="Monsters Appendix Image (JPG)"
-              value={data.appendices.monstersImage}
-              onChange={(img) =>
-                setData(o => ({ ...o, appendices: { ...o.appendices, monstersImage: img } }))
-              }
-            />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <h3 style={{ margin: 0 }}>Monsters Appendix</h3>
+              <button
+                onClick={addMonster}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  border: 0,
+                  cursor: "pointer",
+                  background: "linear-gradient(90deg, var(--brand), var(--brand-2))",
+                  color: "#0b0d12",
+                  fontWeight: 700
+                }}
+              >
+                + Add Monster
+              </button>
+            </div>
+
+            <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 10 }}>
+              {(data.appendices.monsters || []).map((monster) => (
+                <li key={monster.id}>
+                  <div
+                    style={{
+                      display: "grid",
+                      gap: 8,
+                      background: "var(--surface)",
+                      padding: 12,
+                      borderRadius: 10,
+                      border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)"
+                    }}
+                  >
+                    <input
+                      value={monster.name}
+                      onChange={(e) => updateMonster(monster.id, { name: e.target.value })}
+                      placeholder="Monster name..."
+                      style={{
+                        padding: "8px 10px",
+                        background: "var(--bg-elev)",
+                        color: "var(--text)",
+                        borderRadius: 8,
+                        border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)"
+                      }}
+                    />
+                    <textarea
+                      rows={6}
+                      value={monster.content}
+                      onChange={(e) => updateMonster(monster.id, { content: e.target.value })}
+                      placeholder="Stat block, abilities, behavior, tactics..."
+                      style={{
+                        padding: "10px 12px",
+                        background: "var(--bg-elev)",
+                        color: "var(--text)",
+                        borderRadius: 8,
+                        border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)"
+                      }}
+                    />
+                    <ImageField
+                      label="Monster Image (JPG)"
+                      value={monster.image || { dataUrl: "", alt: "", showOnDashboard: false }}
+                      onChange={(img) => updateMonster(monster.id, { image: img })}
+                    />
+                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                      <button
+                        onClick={() => removeMonster(monster.id)}
+                        style={{
+                          padding: "6px 10px",
+                          borderRadius: 8,
+                          border: "1px solid color-mix(in oklab, crimson 50%, var(--text) 20%)",
+                          background: "transparent",
+                          color: "var(--text)",
+                          cursor: "pointer"
+                        }}
+                      >
+                        Remove Monster
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
 
           <div
@@ -613,26 +791,86 @@ export default function ModuleEditor() {
               border: "1px solid color-mix(in oklab, var(--text) 10%, transparent)"
             }}
           >
-            <h3 style={{ margin: 0 }}>Magic Items Appendix</h3>
-            <TextRow
-              label="Magic Items"
-              multiline
-              value={data.appendices.magicItems}
-              onChange={(v) =>
-                setData((old) => {
-                  const next = { ...old, appendices: { ...old.appendices, magicItems: v } };
-                  return next;
-                })
-              }
-              placeholder="Homebrew items, rarity, attunement, effects…"
-            />
-            <ImageField
-              label="Magic Items Appendix Image (JPG)"
-              value={data.appendices.magicItemsImage}
-              onChange={(img) =>
-                setData(o => ({ ...o, appendices: { ...o.appendices, magicItemsImage: img } }))
-              }
-            />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <h3 style={{ margin: 0 }}>Magic Items Appendix</h3>
+              <button
+                onClick={addMagicItem}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  border: 0,
+                  cursor: "pointer",
+                  background: "linear-gradient(90deg, var(--brand), var(--brand-2))",
+                  color: "#0b0d12",
+                  fontWeight: 700
+                }}
+              >
+                + Add Magic Item
+              </button>
+            </div>
+
+            <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 10 }}>
+              {(data.appendices.magicItems || []).map((item) => (
+                <li key={item.id}>
+                  <div
+                    style={{
+                      display: "grid",
+                      gap: 8,
+                      background: "var(--surface)",
+                      padding: 12,
+                      borderRadius: 10,
+                      border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)"
+                    }}
+                  >
+                    <input
+                      value={item.name}
+                      onChange={(e) => updateMagicItem(item.id, { name: e.target.value })}
+                      placeholder="Magic item name..."
+                      style={{
+                        padding: "8px 10px",
+                        background: "var(--bg-elev)",
+                        color: "var(--text)",
+                        borderRadius: 8,
+                        border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)"
+                      }}
+                    />
+                    <textarea
+                      rows={6}
+                      value={item.content}
+                      onChange={(e) => updateMagicItem(item.id, { content: e.target.value })}
+                      placeholder="Description, rarity, attunement, effects, usage..."
+                      style={{
+                        padding: "10px 12px",
+                        background: "var(--bg-elev)",
+                        color: "var(--text)",
+                        borderRadius: 8,
+                        border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)"
+                      }}
+                    />
+                    <ImageField
+                      label="Magic Item Image (JPG)"
+                      value={item.image || { dataUrl: "", alt: "", showOnDashboard: false }}
+                      onChange={(img) => updateMagicItem(item.id, { image: img })}
+                    />
+                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                      <button
+                        onClick={() => removeMagicItem(item.id)}
+                        style={{
+                          padding: "6px 10px",
+                          borderRadius: 8,
+                          border: "1px solid color-mix(in oklab, crimson 50%, var(--text) 20%)",
+                          background: "transparent",
+                          color: "var(--text)",
+                          cursor: "pointer"
+                        }}
+                      >
+                        Remove Magic Item
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
 
