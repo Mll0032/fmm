@@ -304,41 +304,37 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Picker for sections */}
-      <div style={picker}>
-        <div style={{ display: "grid", gap: 8 }}>
-          <label style={label}>Add Section from {selectedModule?.name || "Module"}</label>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 8 }}>
-            {selectableSections.map((s) => (
-              <button
-                key={s.key}
-                onClick={() => addSection(s.key)}
-                style={{
-                  ...addBtn,
-                  opacity: locked ? 0.6 : 1,
-                  cursor: locked ? "not-allowed" : "pointer"
-                }}
-                disabled={locked}
-              >
-                + {s.label}
-              </button>
-            ))}
-            {selectableSections.length === 0 && (
-              <div style={{ color: "var(--muted)" }}>This module has no sections yet.</div>
-            )}
+      {/* Picker for sections - hidden when locked */}
+      {!locked && (
+        <div style={picker}>
+          <div style={{ display: "grid", gap: 8 }}>
+            <label style={label}>Add Section from {selectedModule?.name || "Module"}</label>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 8 }}>
+              {selectableSections.map((s) => (
+                <button
+                  key={s.key}
+                  onClick={() => addSection(s.key)}
+                  style={addBtn}
+                >
+                  + {s.label}
+                </button>
+              ))}
+              {selectableSections.length === 0 && (
+                <div style={{ color: "var(--muted)" }}>This module has no sections yet.</div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <button
+              onClick={clearAll}
+              style={dangerBtn}
+            >
+              Clear All Cards
+            </button>
           </div>
         </div>
-
-        <div>
-          <button
-            onClick={clearAll}
-            style={{ ...dangerBtn, opacity: locked ? 0.6 : 1, cursor: locked ? "not-allowed" : "pointer" }}
-            disabled={locked}
-          >
-            Clear All Cards
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* Cards grid */}
       {modeDrag ? (
