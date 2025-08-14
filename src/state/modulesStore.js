@@ -17,7 +17,7 @@ function write(mods) {
 }
 
 function uid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
 }
 
 // Public API
@@ -93,6 +93,10 @@ export const ModulesStore = {
   replaceAll(list) {
     if (!Array.isArray(list)) return;
     write(list);
+  },
+  remove(id) {
+    const next = read().filter(m => m.id !== id);
+    write(next);
   }
 
 };

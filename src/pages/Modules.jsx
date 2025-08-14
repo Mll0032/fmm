@@ -3,10 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { ModulesStore } from "../state/modulesStore";
 
 function useModules() {
-  const [, force] = useState(0);
-  const modules = useMemo(() => ModulesStore.list(), []);
-  // simple refresh helper
-  const refresh = () => force(x => x + 1);
+  const [tick, setTick] = useState(0);
+  const modules = useMemo(() => ModulesStore.list(), [tick]);
+  const refresh = () => setTick(x => x + 1);
   return { modules, refresh };
 }
 
@@ -33,6 +32,13 @@ export default function Modules() {
 
   function open(id) {
     navigate(`/modules/${id}`);
+  }
+
+  function deleteModule(id, name) {
+    if (confirm(`Delete "${name}"? This cannot be undone.`)) {
+      ModulesStore.remove(id);
+      refresh();
+    }
   }
 
   return (
@@ -113,22 +119,45 @@ export default function Modules() {
               )}
               {list.map(m => (
                 <li key={m.id}>
-                  <button
-                    onClick={() => open(m.id)}
-                    title="Open module editor"
+                  <div
                     style={{
-                      width: "100%",
-                      textAlign: "left",
-                      padding: "10px 12px",
-                      background: "var(--surface)",
-                      color: "var(--text)",
-                      borderRadius: "10px",
-                      border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)",
-                      cursor: "pointer"
+                      display: "flex",
+                      gap: "8px",
+                      alignItems: "center"
                     }}
                   >
-                    {m.name}
-                  </button>
+                    <button
+                      onClick={() => open(m.id)}
+                      title="Open module editor"
+                      style={{
+                        flex: 1,
+                        textAlign: "left",
+                        padding: "10px 12px",
+                        background: "var(--surface)",
+                        color: "var(--text)",
+                        borderRadius: "10px",
+                        border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)",
+                        cursor: "pointer"
+                      }}
+                    >
+                      {m.name}
+                    </button>
+                    <button
+                      onClick={() => deleteModule(m.id, m.name)}
+                      title="Delete module"
+                      style={{
+                        padding: "10px 12px",
+                        background: "transparent",
+                        color: "crimson",
+                        borderRadius: "10px",
+                        border: "1px solid color-mix(in oklab, crimson 50%, var(--text) 20%)",
+                        cursor: "pointer",
+                        fontWeight: 600
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>

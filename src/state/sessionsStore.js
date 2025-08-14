@@ -107,5 +107,11 @@ export const SessionsStore = {
     if (exists) return this.listByModule(moduleId);
     const created = this.create(moduleId, "Session 1");
     return [created];
-  }
+  },
+  removeByModule(moduleId) {
+  const sessions = this.list().filter(s => s.moduleId !== moduleId);
+  localStorage.setItem(KEY, JSON.stringify(sessions));
+  // emit change if you implemented CHANGE_EVENT earlier
+  try { window.dispatchEvent(new Event("fizzrix:sessions:changed")); } catch {}
+},
 };
