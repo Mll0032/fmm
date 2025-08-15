@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate, useParams, useBeforeUnload, useLocation } from "react-router-dom";
 import { ModulesStore } from "../state/modulesStore";
 import Toast from "../components/Toast/Toast";
@@ -39,16 +39,18 @@ function TextRow({ label, value, onChange, placeholder, multiline = false }) {
 export default function ModuleEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const moduleData = useMemo(() => ModulesStore.get(id), [id]);
+  const [moduleData, setModuleData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   // Local, editable form state - initialize with defaults to avoid conditional hooks
-  const [rename, setRename] = useState(moduleData?.name || "");
-  const [data, setData] = useState(moduleData ? withDefaults(moduleData.data) : withDefaults({}));
+  const [rename, setRename] = useState("");
+  const [data, setData] = useState(withDefaults({}));
   const [dirty, setDirty] = useState(false);
-  const [lastSaved, setLastSaved] = useState(moduleData?.updatedAt || moduleData?.createdAt || "");
+  const [lastSaved, setLastSaved] = useState("");
   const [toast, setToast] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   function withDefaults(d) {
     return {
@@ -111,15 +113,30 @@ export default function ModuleEditor() {
     };
   }
   
-  // Reset form when switching modules
+  // Load module data asynchronously
   useEffect(() => {
-    const current = ModulesStore.get(id);
-    if (current) {
-      setRename(current.name);
-      setData(withDefaults(current.data));
-      setDirty(false);
-      setLastSaved(current.updatedAt || current.createdAt);
+    async function loadModule() {
+      try {
+        setLoading(true);
+        const current = await ModulesStore.get(id);
+        if (current) {
+          setModuleData(current);
+          setRename(current.name);
+          setData(withDefaults(current.data));
+          setDirty(false);
+          setLastSaved(current.updatedAt || current.createdAt);
+        } else {
+          setModuleData(null);
+        }
+      } catch (error) {
+        console.error('Error loading module:', error);
+        setModuleData(null);
+      } finally {
+        setLoading(false);
+      }
     }
+    
+    loadModule();
   }, [id]);
 
   // Browser beforeunload warning
@@ -260,6 +277,24 @@ export default function ModuleEditor() {
       navigate(path);
     }
   }, [dirty, navigate]);
+
+  // Loading and error states
+  if (loading) {
+    return (
+      <section style={{ padding: "20px 0" }}>
+        <div style={{ 
+          padding: "40px", 
+          textAlign: "center", 
+          color: "var(--muted)",
+          background: "var(--bg-elev)", 
+          borderRadius: "var(--radius)", 
+          border: "1px solid color-mix(in oklab, var(--text) 10%, transparent)" 
+        }}>
+          Loading module...
+        </div>
+      </section>
+    );
+  }
 
   // 🚫 Guard - moved after all hooks to comply with Rules of Hooks
   if (!moduleData) {
@@ -405,23 +440,34 @@ export default function ModuleEditor() {
     markDirty();
   }
 
-  function handleSave() {
-    // Save title if changed
-    if (rename.trim() && rename.trim() !== moduleData.name) {
-      ModulesStore.rename(moduleData.id, rename.trim());
-    }
-    // Save all section content
-    ModulesStore.updateData(moduleData.id, () => data);
+  async function handleSave() {
+    if (!moduleData || saving) return;
+    
+    try {
+      setSaving(true);
+      
+      // Save title if changed
+      if (rename.trim() && rename.trim() !== moduleData.name) {
+        await ModulesStore.rename(moduleData.id, rename.trim());
+      }
+      // Save all section content
+      await ModulesStore.updateData(moduleData.id, () => data);
 
-    // Refresh local meta and toast
-    const updated = ModulesStore.get(moduleData.id);
-    setLastSaved(updated?.updatedAt || new Date().toISOString());
-    setDirty(false);
-    setToast(true);
+      // Refresh local meta and toast
+      const updated = await ModulesStore.get(moduleData.id);
+      setLastSaved(updated?.updatedAt || new Date().toISOString());
+      setDirty(false);
+      setToast(true);
+    } catch (error) {
+      console.error('Error saving module:', error);
+      alert('Error saving module. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   }
 
-  function handleSaveAndNavigate() {
-    handleSave();
+  async function handleSaveAndNavigate() {
+    await handleSave();
     setShowSaveDialog(false);
     if (pendingNavigation) {
       navigate(pendingNavigation);
@@ -472,7 +518,7 @@ export default function ModuleEditor() {
             </div>
             <button
               onClick={handleSave}
-              disabled={!dirty && rename.trim() === moduleData.name}
+              disabled={saving || (!dirty && rename.trim() === moduleData.name)}
               style={{
                 padding: "10px 14px",
                 background: "linear-gradient(90deg, var(--brand), var(--brand-2))",
@@ -480,12 +526,12 @@ export default function ModuleEditor() {
                 border: 0,
                 borderRadius: 10,
                 fontWeight: 700,
-                cursor: "pointer",
-                opacity: (!dirty && rename.trim() === moduleData.name) ? 0.7 : 1
+                cursor: (saving || (!dirty && rename.trim() === moduleData.name)) ? "not-allowed" : "pointer",
+                opacity: (saving || (!dirty && rename.trim() === moduleData.name)) ? 0.7 : 1
               }}
               title="Save all changes"
             >
-              Save
+              {saving ? "Saving..." : "Save"}
             </button>
           </div>
         </div>
