@@ -5,6 +5,7 @@ import { SessionsStore } from "../state/sessionsStore";
 import DashboardCard from "../components/DashboardCard/DashboardCard";
 import Modal from "../components/Modal/Modal";
 import PillToggle from "../components/PillToggle/PillToggle";
+import SearchableDropdown from "../components/SearchableDropdown/SearchableDropdown";
 
 import {
   DndContext,
@@ -114,19 +115,45 @@ export default function Dashboard() {
 
   // Sections list is from the active module
   const selectedModule = useMemo(() => ModulesStore.get(activeModuleId), [activeModuleId]);
-  const selectableSections = useMemo(() => {
+  // Basic sections that always show as buttons
+  const basicSections = useMemo(() => [
+    { key: "map", label: "Map of Overall Area" },
+    { key: "intro", label: "Introduction" },
+    { key: "overview", label: "Overview" }
+  ], []);
+
+  // Episodes for searchable dropdown
+  const availableEpisodes = useMemo(() => {
     if (!selectedModule) return [];
     const d = selectedModule.data;
-    return [
-      { key: "map", label: "Map of Overall Area" },
-      { key: "intro", label: "Introduction" },
-      { key: "overview", label: "Overview" },
-      ...(d.episodes || []).map((ep) => ({
-        key: `episode:${ep.id}`, label: ep.title || "Episode"
-      })),
-      { key: "appendix:monsters", label: "Monsters Appendix" },
-      { key: "appendix:magicItems", label: "Magic Items Appendix" }
-    ];
+    return (d.episodes || []).map((ep) => ({
+      key: `episode:${ep.id}`, 
+      label: ep.title || "Episode"
+    }));
+  }, [selectedModule]);
+
+  // Monsters that have showOnDashboard enabled for searchable dropdown
+  const availableMonsters = useMemo(() => {
+    if (!selectedModule) return [];
+    const d = selectedModule.data;
+    return (d.appendices?.monsters || [])
+      .filter((monster) => monster.image?.showOnDashboard)
+      .map((monster) => ({
+        key: `monster:${monster.id}`, 
+        label: monster.name || "Monster"
+      }));
+  }, [selectedModule]);
+
+  // Magic items that have showOnDashboard enabled for searchable dropdown
+  const availableMagicItems = useMemo(() => {
+    if (!selectedModule) return [];
+    const d = selectedModule.data;
+    return (d.appendices?.magicItems || [])
+      .filter((item) => item.image?.showOnDashboard)
+      .map((item) => ({
+        key: `magicItem:${item.id}`, 
+        label: item.name || "Magic Item"
+      }));
   }, [selectedModule]);
 
   // --- Session CRUD ---
@@ -168,7 +195,22 @@ export default function Dashboard() {
 
   function addSection(key) {
     if (!selectedModule || locked) return;
-    const [type, sectionId] = key.startsWith("episode:") ? ["episode", key.split(":")[1]] : [key, null];
+    
+    let type, sectionId;
+    if (key.startsWith("episode:")) {
+      type = "episode";
+      sectionId = key.split(":")[1];
+    } else if (key.startsWith("monster:")) {
+      type = "monster";
+      sectionId = key.split(":")[1];
+    } else if (key.startsWith("magicItem:")) {
+      type = "magicItem";
+      sectionId = key.split(":")[1];
+    } else {
+      type = key;
+      sectionId = null;
+    }
+    
     setItems([
       ...items,
       {
@@ -307,22 +349,57 @@ export default function Dashboard() {
       {/* Picker for sections - hidden when locked */}
       {!locked && (
         <div style={picker}>
-          <div style={{ display: "grid", gap: 8 }}>
+          <div style={{ display: "grid", gap: 16 }}>
             <label style={label}>Add Section from {selectedModule?.name || "Module"}</label>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 8 }}>
-              {selectableSections.map((s) => (
-                <button
-                  key={s.key}
-                  onClick={() => addSection(s.key)}
-                  style={addBtn}
-                >
-                  + {s.label}
-                </button>
-              ))}
-              {selectableSections.length === 0 && (
-                <div style={{ color: "var(--muted)" }}>This module has no sections yet.</div>
-              )}
+            
+            {/* Basic sections as buttons */}
+            <div>
+              <h4 style={{ margin: "0 0 8px 0", fontSize: 14, color: "var(--text)" }}>Basic Sections</h4>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 8 }}>
+                {basicSections.map((s) => (
+                  <button
+                    key={s.key}
+                    onClick={() => addSection(s.key)}
+                    style={addBtn}
+                  >
+                    + {s.label}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* Searchable dropdowns */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
+              <SearchableDropdown
+                label="Episodes"
+                placeholder="Search episodes..."
+                items={availableEpisodes}
+                onSelect={(item) => addSection(item.key)}
+                disabled={availableEpisodes.length === 0}
+              />
+              
+              <SearchableDropdown
+                label="Monsters"
+                placeholder="Search monsters..."
+                items={availableMonsters}
+                onSelect={(item) => addSection(item.key)}
+                disabled={availableMonsters.length === 0}
+              />
+              
+              <SearchableDropdown
+                label="Magic Items"
+                placeholder="Search magic items..."
+                items={availableMagicItems}
+                onSelect={(item) => addSection(item.key)}
+                disabled={availableMagicItems.length === 0}
+              />
+            </div>
+
+            {basicSections.length === 0 && availableEpisodes.length === 0 && availableMonsters.length === 0 && availableMagicItems.length === 0 && (
+              <div style={{ color: "var(--muted)", fontStyle: "italic" }}>
+                This module has no sections yet. Create episodes, monsters, or magic items in the Module Editor.
+              </div>
+            )}
           </div>
 
           <div>
