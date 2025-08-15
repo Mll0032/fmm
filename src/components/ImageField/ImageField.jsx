@@ -98,7 +98,7 @@ export default function ImageField({
         )}
       </div>
       <small style={{ color: "var(--muted)" }}>
-        JPG only. Note: saving images to localStorage counts against browser storage (~5–10 MB). A backend or file storage will be better later.
+        JPG only. Images are stored in Supabase cloud storage for better performance and unlimited capacity.
       </small>
     </div>
   );
