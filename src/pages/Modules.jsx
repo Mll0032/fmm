@@ -1,19 +1,37 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ModulesStore } from "../state/modulesStore";
 
 function useModules() {
-  const [tick, setTick] = useState(0);
-  const modules = useMemo(() => ModulesStore.list(), [tick]);
-  const refresh = () => setTick(x => x + 1);
-  return { modules, refresh };
+  const [modules, setModules] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  const loadModules = async () => {
+    try {
+      setLoading(true);
+      const modulesList = await ModulesStore.list();
+      setModules(modulesList);
+    } catch (error) {
+      console.error('Error loading modules:', error);
+      setModules([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadModules();
+  }, []);
+
+  return { modules, loading, refresh: loadModules };
 }
 
 export default function Modules() {
   const navigate = useNavigate();
-  const { modules, refresh } = useModules();
+  const { modules, loading, refresh } = useModules();
   const [name, setName] = useState("");
   const [category, setCategory] = useState("one-shot");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const byCategory = useMemo(() => {
     return {
@@ -22,22 +40,36 @@ export default function Modules() {
     };
   }, [modules]);
 
-  function handleAdd(e) {
+  async function handleAdd(e) {
     e.preventDefault();
-    if (!name.trim()) return;
-    const m = ModulesStore.add({ name, category });
-    setName("");
-    navigate(`/modules/${m.id}`);
+    if (!name.trim() || isSubmitting) return;
+    
+    try {
+      setIsSubmitting(true);
+      const m = await ModulesStore.add({ name, category });
+      setName("");
+      navigate(`/modules/${m.id}`);
+    } catch (error) {
+      console.error('Error creating module:', error);
+      alert('Error creating module. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function open(id) {
     navigate(`/modules/${id}`);
   }
 
-  function deleteModule(id, name) {
+  async function deleteModule(id, name) {
     if (confirm(`Delete "${name}"? This cannot be undone.`)) {
-      ModulesStore.remove(id);
-      refresh();
+      try {
+        await ModulesStore.remove(id);
+        refresh();
+      } catch (error) {
+        console.error('Error deleting module:', error);
+        alert('Error deleting module. Please try again.');
+      }
     }
   }
 
@@ -92,77 +124,92 @@ export default function Modules() {
         </select>
         <button
           type="submit"
+          disabled={isSubmitting || !name.trim()}
           style={{
             padding: "10px 14px",
             background: "linear-gradient(90deg, var(--brand), var(--brand-2))",
             color: "#0b0d12",
             border: 0,
             borderRadius: "10px",
-            cursor: "pointer",
-            fontWeight: 700
+            cursor: isSubmitting || !name.trim() ? "not-allowed" : "pointer",
+            fontWeight: 700,
+            opacity: isSubmitting || !name.trim() ? 0.6 : 1
           }}
         >
-          Add
+          {isSubmitting ? "Adding..." : "Add"}
         </button>
       </form>
 
       {/* Lists */}
       <div style={{ display: "grid", gap: "16px", marginTop: "16px" }}>
-        {Object.entries(byCategory).map(([label, list]) => (
-          <div key={label} style={{ background: "var(--bg-elev)", borderRadius: "var(--radius)", border: "1px solid color-mix(in oklab, var(--text) 10%, transparent)" }}>
-            <div style={{ padding: "12px 12px 0 12px" }}>
-              <h3 style={{ margin: 0 }}>{label}</h3>
-            </div>
-            <ul style={{ listStyle: "none", margin: 0, padding: "8px 8px 8px 8px", display: "grid", gap: "8px" }}>
-              {list.length === 0 && (
-                <li style={{ color: "var(--muted)", padding: "8px 12px" }}>No modules yet.</li>
-              )}
-              {list.map(m => (
-                <li key={m.id}>
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "8px",
-                      alignItems: "center"
-                    }}
-                  >
-                    <button
-                      onClick={() => open(m.id)}
-                      title="Open module editor"
-                      style={{
-                        flex: 1,
-                        textAlign: "left",
-                        padding: "10px 12px",
-                        background: "var(--surface)",
-                        color: "var(--text)",
-                        borderRadius: "10px",
-                        border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)",
-                        cursor: "pointer"
-                      }}
-                    >
-                      {m.name}
-                    </button>
-                    <button
-                      onClick={() => deleteModule(m.id, m.name)}
-                      title="Delete module"
-                      style={{
-                        padding: "10px 12px",
-                        background: "transparent",
-                        color: "crimson",
-                        borderRadius: "10px",
-                        border: "1px solid color-mix(in oklab, crimson 50%, var(--text) 20%)",
-                        cursor: "pointer",
-                        fontWeight: 600
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
+        {loading ? (
+          <div style={{ 
+            padding: "40px", 
+            textAlign: "center", 
+            color: "var(--muted)",
+            background: "var(--bg-elev)", 
+            borderRadius: "var(--radius)", 
+            border: "1px solid color-mix(in oklab, var(--text) 10%, transparent)" 
+          }}>
+            Loading modules...
           </div>
-        ))}
+        ) : (
+          Object.entries(byCategory).map(([label, list]) => (
+            <div key={label} style={{ background: "var(--bg-elev)", borderRadius: "var(--radius)", border: "1px solid color-mix(in oklab, var(--text) 10%, transparent)" }}>
+              <div style={{ padding: "12px 12px 0 12px" }}>
+                <h3 style={{ margin: 0 }}>{label}</h3>
+              </div>
+              <ul style={{ listStyle: "none", margin: 0, padding: "8px 8px 8px 8px", display: "grid", gap: "8px" }}>
+                {list.length === 0 && (
+                  <li style={{ color: "var(--muted)", padding: "8px 12px" }}>No modules yet.</li>
+                )}
+                {list.map(m => (
+                  <li key={m.id}>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "8px",
+                        alignItems: "center"
+                      }}
+                    >
+                      <button
+                        onClick={() => open(m.id)}
+                        title="Open module editor"
+                        style={{
+                          flex: 1,
+                          textAlign: "left",
+                          padding: "10px 12px",
+                          background: "var(--surface)",
+                          color: "var(--text)",
+                          borderRadius: "10px",
+                          border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)",
+                          cursor: "pointer"
+                        }}
+                      >
+                        {m.name}
+                      </button>
+                      <button
+                        onClick={() => deleteModule(m.id, m.name)}
+                        title="Delete module"
+                        style={{
+                          padding: "10px 12px",
+                          background: "transparent",
+                          color: "crimson",
+                          borderRadius: "10px",
+                          border: "1px solid color-mix(in oklab, crimson 50%, var(--text) 20%)",
+                          cursor: "pointer",
+                          fontWeight: 600
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))
+        )}
       </div>
     </section>
   );
