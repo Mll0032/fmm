@@ -55,10 +55,6 @@ export default function DashboardCard({
   item,
   onRemove,
   onFocus,
-  showArrows = false,
-  onMoveLeft,
-  onMoveRight,
-  onResize, // (size: 1|2|3|4)
   locked = false,
 }) {
   const [module, setModule] = useState(null);
@@ -103,37 +99,9 @@ export default function DashboardCard({
       <header style={head}>
         <h4 style={{ margin: 0, fontSize: 16 }}>{s.title}</h4>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-          {/* Size control */}
-          {!locked && (
-            <div
-              style={sizeWrap}
-              title="Resize card"
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {[{ n: 1, label: "S" }, { n: 2, label: "M" }, { n: 3, label: "L" }, { n: 4, label: "XL" }].map(opt => (
-                <button
-                  key={opt.n}
-                  onClick={() => onResize?.(opt.n)}
-                  style={sizeBtn(opt.n === (item.size || 1))}
-                  aria-pressed={opt.n === (item.size || 1)}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          )}
-
           <button onClick={() => onFocus?.(s)} title="Focus" style={btn("var(--surface)")}>
             Focus
           </button>
-
-          {!locked && showArrows && (
-            <>
-              <button onClick={onMoveLeft}  title="Move left"  style={btn("var(--surface)")}>←</button>
-              <button onClick={onMoveRight} title="Move right" style={btn("var(--surface)")}>→</button>
-            </>
-          )}
 
           {!locked && (
             <button onClick={onRemove} title="Remove" style={btn("transparent", "crimson")}>✕</button>
@@ -190,24 +158,3 @@ function btn(bg, color) {
   };
 }
 
-const sizeWrap = {
-  display: "inline-flex",
-  gap: 4,
-  background: "var(--surface)",
-  border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)",
-  borderRadius: 999,
-  padding: 2,
-  opacity: 0.8,
-};
-
-function sizeBtn(active) {
-  return {
-    padding: "4px 8px",
-    borderRadius: 999,
-    border: 0,
-    cursor: "pointer",
-    background: active ? "linear-gradient(90deg, var(--brand), var(--brand-2))" : "transparent",
-    color: active ? "#0b0d12" : "var(--text)",
-    fontWeight: 700,
-  };
-}

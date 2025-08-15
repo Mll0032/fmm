@@ -23,11 +23,10 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-function SortableCard({ item, span = 1, disabled = false, children }) {
+function SortableCard({ item, disabled = false, children }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: item.id, disabled });
   const style = {
-    gridColumn: `span ${Math.max(1, Math.min(4, span))}`,
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.85 : 1
@@ -40,7 +39,6 @@ function SortableCard({ item, span = 1, disabled = false, children }) {
   );
 }
 
-const REORDER_KEY = "fizzrix.dashboard.reorder";      // 'drag' | 'arrows'
 const ACTIVE_MODULE_KEY = "fizzrix.dashboard.activeModule";
 const ACTIVE_SESSION_KEY = "fizzrix.dashboard.activeSession";
 
@@ -159,13 +157,6 @@ export default function Dashboard() {
   const items = activeSession?.items || [];
   const locked = !!activeSession?.locked;
 
-  // ----- Reorder mode (persisted) -----
-  const [modeDrag, setModeDrag] = useState(
-    () => (localStorage.getItem(REORDER_KEY) || "drag") === "drag"
-  );
-  useEffect(() => {
-    localStorage.setItem(REORDER_KEY, modeDrag ? "drag" : "arrows");
-  }, [modeDrag]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -318,8 +309,7 @@ export default function Dashboard() {
         id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
         moduleId: activeModuleId,
         type,
-        sectionId,
-        size: 1
+        sectionId
       }
     ]);
   }
@@ -335,10 +325,7 @@ export default function Dashboard() {
     const newIndex = items.findIndex((i) => i.id === over.id);
     setItems(arrayMove(items, oldIndex, newIndex));
   }
-  const moveLeft  = (idx) => (locked ? null : setItems(arrayMove(items, idx, Math.max(0, idx - 1))));
-  const moveRight = (idx) => (locked ? null : setItems(arrayMove(items, idx, Math.min(items.length - 1, idx + 1))));
 
-  const spanFor = (it) => Math.max(1, Math.min(4, it.size || 1));
 
   // Focus
   const [focus, setFocus] = useState(null);
@@ -436,13 +423,8 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* Session actions + mode/lock */}
+        {/* Session actions + lock */}
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <PillToggle
-            label={`Reorder: ${modeDrag ? "Drag & Drop" : "Arrows"}`}
-            checked={modeDrag}
-            onChange={(v) => setModeDrag(v)}
-          />
           <PillToggle
             label={locked ? "Locked" : "Unlocked"}
             checked={locked}
@@ -540,51 +522,23 @@ export default function Dashboard() {
       )}
 
       {/* Cards grid */}
-      {modeDrag ? (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-          <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-            <div style={grid}>
-              {items.length === 0 && <div style={{ color: "var(--muted)" }}>No cards in this session yet.</div>}
-              {items.map((it) => (
-                <SortableCard key={it.id} item={it} span={spanFor(it)} disabled={locked}>
-                  <DashboardCard
-                    item={it}
-                    locked={locked}
-                    onRemove={() => setItems(items.filter((x) => x.id !== it.id))}
-                    onFocus={(payload) => setFocus(payload)}
-                    showArrows={false}
-                    onResize={(n) => {
-                      if (locked) return;
-                      setItems(items.map((x) => (x.id === it.id ? { ...x, size: n } : x)));
-                    }}
-                  />
-                </SortableCard>
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
-      ) : (
-        <div style={grid}>
-          {items.length === 0 && <div style={{ color: "var(--muted)" }}>No cards in this session yet.</div>}
-          {items.map((it, idx) => (
-            <div key={it.id} style={{ gridColumn: `span ${spanFor(it)}` }}>
-              <DashboardCard
-                item={it}
-                locked={locked}
-                onRemove={() => setItems(items.filter((x) => x.id !== it.id))}
-                onFocus={(payload) => setFocus(payload)}
-                showArrows={!locked}
-                onMoveLeft={() => moveLeft(idx)}
-                onMoveRight={() => moveRight(idx)}
-                onResize={(n) => {
-                  if (locked) return;
-                  setItems(items.map((x) => (x.id === it.id ? { ...x, size: n } : x)));
-                }}
-              />
-            </div>
-          ))}
-        </div>
-      )}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+        <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+          <div style={grid}>
+            {items.length === 0 && <div style={{ color: "var(--muted)" }}>No cards in this session yet.</div>}
+            {items.map((it) => (
+              <SortableCard key={it.id} item={it} disabled={locked}>
+                <DashboardCard
+                  item={it}
+                  locked={locked}
+                  onRemove={() => setItems(items.filter((x) => x.id !== it.id))}
+                  onFocus={(payload) => setFocus(payload)}
+                />
+              </SortableCard>
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
 
       {/* Focus Mode */}
       <Modal open={!!focus} title={focus?.title || "Focus"} onClose={() => setFocus(null)}>
