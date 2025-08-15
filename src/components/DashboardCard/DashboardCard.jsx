@@ -1,7 +1,8 @@
-import React, { useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { ModulesStore } from "../../state/modulesStore";
 
 function sectionData(module, item) {
+  if (!module || !module.data) return { title: "Loading...", text: "" };
   const d = module.data;
   switch (item.type) {
     case "map":
@@ -60,7 +61,38 @@ export default function DashboardCard({
   onResize, // (size: 1|2|3|4)
   locked = false,
 }) {
-  const module = useMemo(() => ModulesStore.get(item.moduleId), [item.moduleId]);
+  const [module, setModule] = useState(null);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    async function loadModule() {
+      try {
+        setLoading(true);
+        const moduleData = await ModulesStore.get(item.moduleId);
+        setModule(moduleData);
+      } catch (error) {
+        console.error('Error loading module for dashboard card:', error);
+        setModule(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    if (item.moduleId) {
+      loadModule();
+    }
+  }, [item.moduleId]);
+  
+  if (loading) {
+    return (
+      <article style={card}>
+        <header style={head}>
+          <h4 style={{ margin: 0, fontSize: 16 }}>Loading...</h4>
+        </header>
+      </article>
+    );
+  }
+  
   if (!module) return null;
 
   const s = sectionData(module, item);
