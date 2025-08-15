@@ -45,36 +45,75 @@ const ACTIVE_MODULE_KEY = "fizzrix.dashboard.activeModule";
 const ACTIVE_SESSION_KEY = "fizzrix.dashboard.activeSession";
 
 export default function Dashboard() {
-  const modules = ModulesStore.list();
+  const [modules, setModules] = useState([]);
+  const [loadingModules, setLoadingModules] = useState(true);
+
+  // Load modules asynchronously
+  useEffect(() => {
+    async function loadModules() {
+      try {
+        setLoadingModules(true);
+        const modulesList = await ModulesStore.list();
+        setModules(modulesList);
+      } catch (error) {
+        console.error('Error loading modules:', error);
+        setModules([]);
+      } finally {
+        setLoadingModules(false);
+      }
+    }
+    loadModules();
+  }, []);
 
   // ----- Active module (persisted) -----
-  const [activeModuleId, setActiveModuleId] = useState(() => {
-    const fromLS = localStorage.getItem(ACTIVE_MODULE_KEY);
-    const exists = modules.some(m => m.id === fromLS);
-    return exists ? fromLS : (modules[0]?.id || "");
-  });
+  const [activeModuleId, setActiveModuleId] = useState("");
+  
+  // Set initial active module when modules load
   useEffect(() => {
-    localStorage.setItem(ACTIVE_MODULE_KEY, activeModuleId);
+    if (modules.length > 0 && !activeModuleId) {
+      const fromLS = localStorage.getItem(ACTIVE_MODULE_KEY);
+      const exists = modules.some(m => m.id === fromLS);
+      setActiveModuleId(exists ? fromLS : (modules[0]?.id || ""));
+    }
+  }, [modules, activeModuleId]);
+  useEffect(() => {
+    if (activeModuleId) {
+      localStorage.setItem(ACTIVE_MODULE_KEY, activeModuleId);
+    }
   }, [activeModuleId]);
-
-  // Ensure the module has at least one session
-  const sessionsForModule = SessionsStore.ensureDefaultForModule(activeModuleId);
 
   // ----- Active session (persisted and validated per module) -----
-  const [activeSessionId, setActiveSessionId] = useState(() => {
-    const fromLS = localStorage.getItem(ACTIVE_SESSION_KEY);
-    const valid = SessionsStore.get(fromLS);
-    return valid?.moduleId === activeModuleId
-      ? fromLS
-      : (sessionsForModule[0]?.id || "");
-  });
+  const [activeSessionId, setActiveSessionId] = useState("");
+  const [sessionsForModule, setSessionsForModule] = useState([]);
+  const [_loadingSessions, setLoadingSessions] = useState(false);
+  
+  // Ensure the module has at least one session when activeModuleId changes
   useEffect(() => {
-    // when module changes, choose first session under that module
-    const list = SessionsStore.ensureDefaultForModule(activeModuleId);
-    const current = SessionsStore.get(localStorage.getItem(ACTIVE_SESSION_KEY));
-    const nextId = current?.moduleId === activeModuleId ? current.id : (list[0]?.id || "");
-    setActiveSessionId(nextId);
+    async function loadSessions() {
+      if (activeModuleId) {
+        try {
+          setLoadingSessions(true);
+          const sessions = await SessionsStore.ensureDefaultForModule(activeModuleId);
+          setSessionsForModule(sessions);
+          
+          // Set active session
+          const fromLS = localStorage.getItem(ACTIVE_SESSION_KEY);
+          const valid = await SessionsStore.get(fromLS);
+          const nextId = valid?.moduleId === activeModuleId
+            ? fromLS
+            : (sessions[0]?.id || "");
+          setActiveSessionId(nextId);
+        } catch (error) {
+          console.error('Error loading sessions:', error);
+          setSessionsForModule([]);
+        } finally {
+          setLoadingSessions(false);
+        }
+      }
+    }
+    loadSessions();
   }, [activeModuleId]);
+  // This useEffect is now handled above in the activeModuleId effect
   useEffect(() => {
     if (activeSessionId) localStorage.setItem(ACTIVE_SESSION_KEY, activeSessionId);
   }, [activeSessionId]);
@@ -93,10 +132,30 @@ export default function Dashboard() {
     };
   }, []);
 
-  const activeSession = useMemo(
-    () => SessionsStore.get(activeSessionId),
-    [activeSessionId, tick]
-  );
+  const [activeSession, setActiveSession] = useState(null);
+  const [_loadingActiveSession, setLoadingActiveSession] = useState(false);
+  
+  // Load active session when activeSessionId changes
+  useEffect(() => {
+    async function loadActiveSession() {
+      if (activeSessionId) {
+        try {
+          setLoadingActiveSession(true);
+          const session = await SessionsStore.get(activeSessionId);
+          setActiveSession(session);
+        } catch (error) {
+          console.error('Error loading active session:', error);
+          setActiveSession(null);
+        } finally {
+          setLoadingActiveSession(false);
+        }
+      } else {
+        setActiveSession(null);
+      }
+    }
+    loadActiveSession();
+  }, [activeSessionId, tick]);
+  
   const items = activeSession?.items || [];
   const locked = !!activeSession?.locked;
 
@@ -114,7 +173,9 @@ export default function Dashboard() {
   );
 
   // Sections list is from the active module
-  const selectedModule = useMemo(() => ModulesStore.get(activeModuleId), [activeModuleId]);
+  const selectedModule = useMemo(() => {
+    return modules.find(m => m.id === activeModuleId) || null;
+  }, [modules, activeModuleId]);
   // Basic sections that always show as buttons
   const basicSections = useMemo(() => [
     { key: "map", label: "Map of Overall Area" },
@@ -132,24 +193,22 @@ export default function Dashboard() {
     }));
   }, [selectedModule]);
 
-  // Monsters that have showOnDashboard enabled for searchable dropdown
+  // Monsters for searchable dropdown (show all monsters, not just those with showOnDashboard)
   const availableMonsters = useMemo(() => {
     if (!selectedModule) return [];
     const d = selectedModule.data;
     return (d.appendices?.monsters || [])
-      .filter((monster) => monster.image?.showOnDashboard)
       .map((monster) => ({
         key: `monster:${monster.id}`, 
         label: monster.name || "Monster"
       }));
   }, [selectedModule]);
 
-  // Magic items that have showOnDashboard enabled for searchable dropdown
+  // Magic items for searchable dropdown (show all items, not just those with showOnDashboard)
   const availableMagicItems = useMemo(() => {
     if (!selectedModule) return [];
     const d = selectedModule.data;
     return (d.appendices?.magicItems || [])
-      .filter((item) => item.image?.showOnDashboard)
       .map((item) => ({
         key: `magicItem:${item.id}`, 
         label: item.name || "Magic Item"
@@ -157,41 +216,83 @@ export default function Dashboard() {
   }, [selectedModule]);
 
   // --- Session CRUD ---
-  function addSession() {
-    const count = SessionsStore.listByModule(activeModuleId).length;
-    const s = SessionsStore.create(activeModuleId, `Session ${count + 1}`);
-    setActiveSessionId(s.id);
-  }
-  function renameSession(sessionId) {
-    const current = SessionsStore.get(sessionId);
-    const name = prompt("Rename session", current?.name || "");
-    if (name && name.trim()) {
-      SessionsStore.rename(sessionId, name.trim());
+  async function addSession() {
+    try {
+      const sessions = await SessionsStore.listByModule(activeModuleId);
+      const count = sessions.length;
+      const s = await SessionsStore.create(activeModuleId, `Session ${count + 1}`);
+      setActiveSessionId(s.id);
+      // Refresh sessions list
+      const updatedSessions = await SessionsStore.listByModule(activeModuleId);
+      setSessionsForModule(updatedSessions);
       setTick(t => t + 1);
+    } catch (error) {
+      console.error('Error adding session:', error);
+      alert('Error creating session. Please try again.');
     }
   }
-  function duplicateSession(sessionId) {
-    const dup = SessionsStore.duplicate(sessionId);
-    if (dup) {
-      setActiveModuleId(dup.moduleId);
-      setActiveSessionId(dup.id);
+  async function renameSession(sessionId) {
+    try {
+      const current = await SessionsStore.get(sessionId);
+      const name = prompt("Rename session", current?.name || "");
+      if (name && name.trim()) {
+        await SessionsStore.rename(sessionId, name.trim());
+        // Refresh sessions list
+        const updatedSessions = await SessionsStore.listByModule(activeModuleId);
+        setSessionsForModule(updatedSessions);
+        setTick(t => t + 1);
+      }
+    } catch (error) {
+      console.error('Error renaming session:', error);
+      alert('Error renaming session. Please try again.');
     }
   }
-  function deleteSession(sessionId) {
-    const list = SessionsStore.listByModule(activeModuleId);
-    if (list.length <= 1) {
-      alert("A module must have at least one session.");
-      return;
+  async function duplicateSession(sessionId) {
+    try {
+      const dup = await SessionsStore.duplicate(sessionId);
+      if (dup) {
+        setActiveModuleId(dup.moduleId);
+        setActiveSessionId(dup.id);
+        // Refresh sessions list
+        const updatedSessions = await SessionsStore.listByModule(activeModuleId);
+        setSessionsForModule(updatedSessions);
+        setTick(t => t + 1);
+      }
+    } catch (error) {
+      console.error('Error duplicating session:', error);
+      alert('Error duplicating session. Please try again.');
     }
-    if (confirm("Delete this session? This cannot be undone.")) {
-      SessionsStore.remove(sessionId);
-      const remaining = SessionsStore.listByModule(activeModuleId);
-      setActiveSessionId(remaining[0]?.id || "");
+  }
+  async function deleteSession(sessionId) {
+    try {
+      const list = await SessionsStore.listByModule(activeModuleId);
+      if (list.length <= 1) {
+        alert("A module must have at least one session.");
+        return;
+      }
+      if (confirm("Delete this session? This cannot be undone.")) {
+        await SessionsStore.remove(sessionId);
+        const remaining = await SessionsStore.listByModule(activeModuleId);
+        setActiveSessionId(remaining[0]?.id || "");
+        setSessionsForModule(remaining);
+        setTick(t => t + 1);
+      }
+    } catch (error) {
+      console.error('Error deleting session:', error);
+      alert('Error deleting session. Please try again.');
     }
   }
 
   // --- Items ops (persist via SessionsStore) ---
-  const setItems = (next) => SessionsStore.setItems(activeSessionId, next);
+  const setItems = async (next) => {
+    try {
+      await SessionsStore.setItems(activeSessionId, next);
+      setTick(t => t + 1);
+    } catch (error) {
+      console.error('Error updating session items:', error);
+      alert('Error updating dashboard. Please try again.');
+    }
+  };
 
   function addSection(key) {
     if (!selectedModule || locked) return;
@@ -242,6 +343,25 @@ export default function Dashboard() {
   // Focus
   const [focus, setFocus] = useState(null);
 
+  // Show loading state while modules are being loaded
+  if (loadingModules) {
+    return (
+      <section style={{ padding: "20px 0" }}>
+        <h2>Session Dashboard</h2>
+        <div style={{ 
+          padding: "40px", 
+          textAlign: "center", 
+          color: "var(--muted)",
+          background: "var(--bg-elev)", 
+          borderRadius: "var(--radius)", 
+          border: "1px solid color-mix(in oklab, var(--text) 10%, transparent)" 
+        }}>
+          Loading modules...
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section style={{ padding: "20px 0", display: "grid", gap: 16 }}>
       <h2>Session Dashboard</h2>
@@ -282,7 +402,7 @@ export default function Dashboard() {
         }}
       >
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {SessionsStore.listByModule(activeModuleId).map((s) => (
+          {sessionsForModule.map((s) => (
             <button
               key={s.id}
               onClick={() => setActiveSessionId(s.id)}
@@ -326,8 +446,14 @@ export default function Dashboard() {
           <PillToggle
             label={locked ? "Locked" : "Unlocked"}
             checked={locked}
-            onChange={(v) => {
-              SessionsStore.setLocked(activeSessionId, v);
+            onChange={async (v) => {
+              try {
+                await SessionsStore.setLocked(activeSessionId, v);
+                setTick(t => t + 1);
+              } catch (error) {
+                console.error('Error updating session lock:', error);
+                alert('Error updating session lock. Please try again.');
+              }
             }}
           />
           <button onClick={() => renameSession(activeSessionId)} style={liteBtn} disabled={!activeSessionId}>
