@@ -30,6 +30,56 @@ function HoverButton({ children, onClick, style, hoverStyle, ...props }) {
   );
 }
 
+// Tooltip component
+function Tooltip({ children, text }) {
+  const [showTooltip, setShowTooltip] = useState(false);
+  
+  return (
+    <div 
+      style={{ position: "relative", display: "inline-flex", alignItems: "center" }}
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+    >
+      {children}
+      {showTooltip && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "100%",
+            left: "50%",
+            transform: "translateX(-50%)",
+            marginBottom: "8px",
+            padding: "8px 12px",
+            backgroundColor: "var(--bg-elev)",
+            color: "var(--text)",
+            border: "1px solid color-mix(in oklab, var(--text) 20%, transparent)",
+            borderRadius: "8px",
+            fontSize: "12px",
+            whiteSpace: "nowrap",
+            zIndex: 1000,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)"
+          }}
+        >
+          {text}
+          <div
+            style={{
+              position: "absolute",
+              top: "100%",
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: 0,
+              height: 0,
+              borderLeft: "6px solid transparent",
+              borderRight: "6px solid transparent",
+              borderTop: "6px solid var(--bg-elev)"
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const [modules, setModules] = useState([]);
   const [loadingModules, setLoadingModules] = useState(true);
@@ -402,19 +452,31 @@ export default function Dashboard() {
 
         {/* Session actions + lock */}
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "space-between" }}>
-          <PillToggle
-            label={locked ? "Locked" : "Unlocked"}
-            checked={locked}
-            onChange={async (v) => {
-              try {
-                await SessionsStore.setLocked(activeSessionId, v);
-                setTick(t => t + 1);
-              } catch (error) {
-                console.error('Error updating session lock:', error);
-                alert('Error updating session lock. Please try again.');
-              }
-            }}
-          />
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <PillToggle
+              label={locked ? "Locked" : "Unlocked"}
+              checked={locked}
+              onChange={async (v) => {
+                try {
+                  await SessionsStore.setLocked(activeSessionId, v);
+                  setTick(t => t + 1);
+                } catch (error) {
+                  console.error('Error updating session lock:', error);
+                  alert('Error updating session lock. Please try again.');
+                }
+              }}
+            />
+            <Tooltip text="Locks the interface to prevent accidental movement of cards">
+              <span style={{ 
+                fontSize: "14px", 
+                color: "var(--muted)", 
+                cursor: "help",
+                userSelect: "none"
+              }}>
+                ?
+              </span>
+            </Tooltip>
+          </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <HoverButton 
               onClick={() => renameSession(activeSessionId)} 
