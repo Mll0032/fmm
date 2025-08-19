@@ -4,6 +4,23 @@ import { ModulesStore } from "../state/modulesStore";
 import Toast from "../components/Toast/Toast";
 import ImageField from "../components/ImageField/ImageField";
 
+// Hover-enabled button component
+function HoverButton({ children, onClick, style, hoverStyle, ...props }) {
+  const [isHovered, setIsHovered] = useState(false);
+  
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={isHovered ? hoverStyle : style}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
 function TextRow({ label, value, onChange, placeholder, multiline = false }) {
   const common = {
     width: "100%",
@@ -497,18 +514,29 @@ export default function ModuleEditor() {
       <section style={{ padding: "20px 0", display: "grid", gap: 16 }}>
         {/* Top bar */}
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <button
+          <HoverButton
             onClick={handleBack}
             style={{
               padding: "8px 12px",
               borderRadius: 10,
-              border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)",
-              background: "var(--bg-elev)",
-              color: "var(--text)"
+              border: "1px solid color-mix(in oklab, var(--brand) 30%, transparent)",
+              background: "linear-gradient(90deg, var(--brand), var(--brand-2))",
+              color: "#0b0d12",
+              fontWeight: 600,
+              transition: "background 0.2s ease"
+            }}
+            hoverStyle={{
+              padding: "8px 12px",
+              borderRadius: 10,
+              border: "1px solid color-mix(in oklab, var(--brand) 30%, transparent)",
+              background: "linear-gradient(270deg, var(--brand), var(--brand-2))",
+              color: "#0b0d12",
+              fontWeight: 600,
+              transition: "background 0.2s ease"
             }}
           >
             ← Back
-          </button>
+          </HoverButton>
 
           <h2 style={{ margin: 0, flex: "1 1 auto" }}>{rename}</h2>
 
@@ -516,7 +544,7 @@ export default function ModuleEditor() {
             <div style={{ fontSize: 12, color: "var(--muted)" }}>
               Last saved: {formatTS(lastSaved)}
             </div>
-            <button
+            <HoverButton
               onClick={handleSave}
               disabled={saving || (!dirty && rename.trim() === moduleData.name)}
               style={{
@@ -527,12 +555,24 @@ export default function ModuleEditor() {
                 borderRadius: 10,
                 fontWeight: 700,
                 cursor: (saving || (!dirty && rename.trim() === moduleData.name)) ? "not-allowed" : "pointer",
-                opacity: (saving || (!dirty && rename.trim() === moduleData.name)) ? 0.7 : 1
+                opacity: (saving || (!dirty && rename.trim() === moduleData.name)) ? 0.7 : 1,
+                transition: "background 0.2s ease"
+              }}
+              hoverStyle={{
+                padding: "10px 14px",
+                background: "linear-gradient(270deg, var(--brand), var(--brand-2))",
+                color: "#0b0d12",
+                border: 0,
+                borderRadius: 10,
+                fontWeight: 700,
+                cursor: (saving || (!dirty && rename.trim() === moduleData.name)) ? "not-allowed" : "pointer",
+                opacity: (saving || (!dirty && rename.trim() === moduleData.name)) ? 0.7 : 1,
+                transition: "background 0.2s ease"
               }}
               title="Save all changes"
             >
               {saving ? "Saving..." : "Save"}
-            </button>
+            </HoverButton>
           </div>
         </div>
 
@@ -654,7 +694,7 @@ export default function ModuleEditor() {
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <h3 style={{ margin: 0 }}>Episodes</h3>
-            <button
+            <HoverButton
               onClick={addEpisode}
               style={{
                 padding: "8px 12px",
@@ -663,11 +703,22 @@ export default function ModuleEditor() {
                 cursor: "pointer",
                 background: "linear-gradient(90deg, var(--brand), var(--brand-2))",
                 color: "#0b0d12",
-                fontWeight: 700
+                fontWeight: 700,
+                transition: "background 0.2s ease"
+              }}
+              hoverStyle={{
+                padding: "8px 12px",
+                borderRadius: 10,
+                border: 0,
+                cursor: "pointer",
+                background: "linear-gradient(270deg, var(--brand), var(--brand-2))",
+                color: "#0b0d12",
+                fontWeight: 700,
+                transition: "background 0.2s ease"
               }}
             >
               + Add Episode
-            </button>
+            </HoverButton>
           </div>
 
           <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 10 }}>
@@ -747,7 +798,7 @@ export default function ModuleEditor() {
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <h3 style={{ margin: 0 }}>Monsters Appendix</h3>
-              <button
+              <HoverButton
                 onClick={addMonster}
                 style={{
                   padding: "8px 12px",
@@ -756,11 +807,22 @@ export default function ModuleEditor() {
                   cursor: "pointer",
                   background: "linear-gradient(90deg, var(--brand), var(--brand-2))",
                   color: "#0b0d12",
-                  fontWeight: 700
+                  fontWeight: 700,
+                  transition: "background 0.2s ease"
+                }}
+                hoverStyle={{
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  border: 0,
+                  cursor: "pointer",
+                  background: "linear-gradient(270deg, var(--brand), var(--brand-2))",
+                  color: "#0b0d12",
+                  fontWeight: 700,
+                  transition: "background 0.2s ease"
                 }}
               >
                 + Add Monster
-              </button>
+              </HoverButton>
             </div>
 
             <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 10 }}>
@@ -839,7 +901,7 @@ export default function ModuleEditor() {
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <h3 style={{ margin: 0 }}>Magic Items Appendix</h3>
-              <button
+              <HoverButton
                 onClick={addMagicItem}
                 style={{
                   padding: "8px 12px",
@@ -848,11 +910,22 @@ export default function ModuleEditor() {
                   cursor: "pointer",
                   background: "linear-gradient(90deg, var(--brand), var(--brand-2))",
                   color: "#0b0d12",
-                  fontWeight: 700
+                  fontWeight: 700,
+                  transition: "background 0.2s ease"
+                }}
+                hoverStyle={{
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  border: 0,
+                  cursor: "pointer",
+                  background: "linear-gradient(270deg, var(--brand), var(--brand-2))",
+                  color: "#0b0d12",
+                  fontWeight: 700,
+                  transition: "background 0.2s ease"
                 }}
               >
                 + Add Magic Item
-              </button>
+              </HoverButton>
             </div>
 
             <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 10 }}>
@@ -989,7 +1062,7 @@ export default function ModuleEditor() {
               >
                 Don't Save
               </button>
-              <button
+              <HoverButton
                 onClick={handleSaveAndNavigate}
                 style={{
                   padding: "8px 12px",
@@ -998,11 +1071,22 @@ export default function ModuleEditor() {
                   background: "linear-gradient(90deg, var(--brand), var(--brand-2))",
                   color: "#0b0d12",
                   fontWeight: 700,
-                  cursor: "pointer"
+                  cursor: "pointer",
+                  transition: "background 0.2s ease"
+                }}
+                hoverStyle={{
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  border: 0,
+                  background: "linear-gradient(270deg, var(--brand), var(--brand-2))",
+                  color: "#0b0d12",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  transition: "background 0.2s ease"
                 }}
               >
                 Save
-              </button>
+              </HoverButton>
             </div>
           </div>
         </div>
