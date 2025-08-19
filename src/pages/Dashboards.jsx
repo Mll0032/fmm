@@ -13,6 +13,23 @@ import DraggableGrid from "../components/DraggableGrid/DraggableGrid";
 const ACTIVE_MODULE_KEY = "fizzrix.dashboard.activeModule";
 const ACTIVE_SESSION_KEY = "fizzrix.dashboard.activeSession";
 
+// Hover-enabled button components
+function HoverButton({ children, onClick, style, hoverStyle, ...props }) {
+  const [isHovered, setIsHovered] = useState(false);
+  
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={isHovered ? hoverStyle : style}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function Dashboard() {
   const [modules, setModules] = useState([]);
   const [loadingModules, setLoadingModules] = useState(true);
@@ -355,20 +372,31 @@ export default function Dashboard() {
               onSelect={(item) => setActiveSessionId(item.key)}
               selectedValue={sessionsForModule.find(s => s.id === activeSessionId)?.name || ""}
             />
-            <button
+            <HoverButton
               onClick={addSession}
               style={{
                 padding: "8px 12px",
                 borderRadius: 8,
-                border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)",
-                background: "var(--surface)",
-                color: "var(--text)",
+                border: "1px solid color-mix(in oklab, var(--brand) 30%, transparent)",
+                background: "linear-gradient(90deg, var(--brand), var(--brand-2))",
+                color: "#0b0d12",
                 cursor: "pointer",
-                fontWeight: 600
+                fontWeight: 600,
+                transition: "background 0.2s ease"
+              }}
+              hoverStyle={{
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: "1px solid color-mix(in oklab, var(--brand) 30%, transparent)",
+                background: "linear-gradient(270deg, var(--brand), var(--brand-2))",
+                color: "#0b0d12",
+                cursor: "pointer",
+                fontWeight: 600,
+                transition: "background 0.2s ease"
               }}
             >
               + New Session
-            </button>
+            </HoverButton>
           </div>
         </div>
 
@@ -388,12 +416,22 @@ export default function Dashboard() {
             }}
           />
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <button onClick={() => renameSession(activeSessionId)} style={liteBtn} disabled={!activeSessionId}>
+            <HoverButton 
+              onClick={() => renameSession(activeSessionId)} 
+              style={liteBtn}
+              hoverStyle={liteBtnHover}
+              disabled={!activeSessionId}
+            >
               Rename
-            </button>
-            <button onClick={() => duplicateSession(activeSessionId)} style={liteBtn} disabled={!activeSessionId}>
+            </HoverButton>
+            <HoverButton 
+              onClick={() => duplicateSession(activeSessionId)} 
+              style={liteBtn}
+              hoverStyle={liteBtnHover}
+              disabled={!activeSessionId}
+            >
               Duplicate
-            </button>
+            </HoverButton>
             <button
               onClick={() => deleteSession(activeSessionId)}
               style={{ ...liteBtn, color: "crimson", borderColor: "crimson" }}
@@ -416,13 +454,14 @@ export default function Dashboard() {
               <h4 style={{ margin: "0 0 8px 0", fontSize: 14, color: "var(--text)" }}>Basic Sections</h4>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 8 }}>
                 {basicSections.map((s) => (
-                  <button
+                  <HoverButton
                     key={s.key}
                     onClick={() => addSection(s.key)}
                     style={addBtn}
+                    hoverStyle={addBtnHover}
                   >
                     + {s.label}
-                  </button>
+                  </HoverButton>
                 ))}
               </div>
             </div>
@@ -545,11 +584,18 @@ const label = { fontSize: 14, color: "var(--muted)" };
 const addBtn = {
   padding: "8px 10px",
   textAlign: "left",
-  background: "var(--surface)",
-  color: "var(--text)",
+  background: "linear-gradient(90deg, var(--brand), var(--brand-2))",
+  color: "#0b0d12",
   borderRadius: 10,
-  border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)",
-  cursor: "pointer"
+  border: "1px solid color-mix(in oklab, var(--brand) 30%, transparent)",
+  cursor: "pointer",
+  fontWeight: 600,
+  transition: "background 0.2s ease"
+};
+
+const addBtnHover = {
+  ...addBtn,
+  background: "linear-gradient(270deg, var(--brand), var(--brand-2))"
 };
 const dangerBtn = {
   padding: "8px 12px",
@@ -561,9 +607,16 @@ const dangerBtn = {
 };
 const liteBtn = {
   padding: "6px 10px",
-  background: "var(--surface)",
-  color: "var(--text)",
+  background: "linear-gradient(90deg, var(--brand), var(--brand-2))",
+  color: "#0b0d12",
   borderRadius: 999,
-  border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)",
-  cursor: "pointer"
+  border: "1px solid color-mix(in oklab, var(--brand) 30%, transparent)",
+  cursor: "pointer",
+  fontWeight: 600,
+  transition: "background 0.2s ease"
+};
+
+const liteBtnHover = {
+  ...liteBtn,
+  background: "linear-gradient(270deg, var(--brand), var(--brand-2))"
 };
