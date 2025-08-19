@@ -313,78 +313,67 @@ export default function Dashboard() {
     <section style={{ padding: "20px 0", display: "grid", gap: 16 }}>
       <h2>Session Dashboard</h2>
 
-      {/* Module tabs */}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {modules.map((m) => (
-          <button
-            key={m.id}
-            onClick={() => setActiveModuleId(m.id)}
-            style={{
-              padding: "8px 12px",
-              borderRadius: 999,
-              border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)",
-              background: m.id === activeModuleId ? "linear-gradient(90deg, var(--brand), var(--brand-2))" : "var(--surface)",
-              color: m.id === activeModuleId ? "#0b0d12" : "var(--text)",
-              fontWeight: 700,
-              cursor: "pointer"
-            }}
-          >
-            {m.name}
-          </button>
-        ))}
+      {/* Module selection */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 16,
+        background: "var(--bg-elev)",
+        borderRadius: "var(--radius)",
+        border: "1px solid color-mix(in oklab, var(--text) 10%, transparent)",
+        padding: 12
+      }}>
+        <label style={{ fontSize: 14, color: "var(--text)", fontWeight: 600, minWidth: "60px" }}>Module:</label>
+        <SearchableDropdown
+          label=""
+          placeholder="Select a module..."
+          items={modules.map(m => ({ key: m.id, label: m.name }))}
+          onSelect={(item) => setActiveModuleId(item.key)}
+          selectedValue={modules.find(m => m.id === activeModuleId)?.name || ""}
+        />
       </div>
 
-      {/* Sessions under the active module */}
+      {/* Session selection and actions */}
       <div
         style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 8,
-          alignItems: "center",
-          justifyContent: "space-between",
+          display: "grid",
+          gap: 12,
           background: "var(--bg-elev)",
           borderRadius: "var(--radius)",
           border: "1px solid color-mix(in oklab, var(--text) 10%, transparent)",
           padding: 12
         }}
       >
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {sessionsForModule.map((s) => (
+        {/* Session dropdown and new session button */}
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <label style={{ fontSize: 14, color: "var(--text)", fontWeight: 600, minWidth: "60px" }}>Session:</label>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flex: 1 }}>
+            <SearchableDropdown
+              label=""
+              placeholder="Select a session..."
+              items={sessionsForModule.map(s => ({ key: s.id, label: s.name }))}
+              onSelect={(item) => setActiveSessionId(item.key)}
+              selectedValue={sessionsForModule.find(s => s.id === activeSessionId)?.name || ""}
+            />
             <button
-              key={s.id}
-              onClick={() => setActiveSessionId(s.id)}
+              onClick={addSession}
               style={{
-                padding: "6px 10px",
-                borderRadius: 999,
+                padding: "8px 12px",
+                borderRadius: 8,
                 border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)",
-                background: s.id === activeSessionId ? "linear-gradient(90deg, var(--brand), var(--brand-2))" : "var(--surface)",
-                color: s.id === activeSessionId ? "#0b0d12" : "var(--text)",
-                fontWeight: 700,
-                cursor: "pointer"
+                background: "var(--surface)",
+                color: "var(--text)",
+                cursor: "pointer",
+                fontWeight: 600
               }}
-              title={s.name}
             >
-              {s.name}
+              + New Session
             </button>
-          ))}
-
-          <button
-            onClick={addSession}
-            style={{
-              padding: "6px 10px",
-              borderRadius: 999,
-              border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)",
-              background: "var(--surface)",
-              color: "var(--text)",
-              cursor: "pointer"
-            }}
-          >
-            + New Session
-          </button>
+          </div>
         </div>
 
         {/* Session actions + lock */}
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "space-between" }}>
           <PillToggle
             label={locked ? "Locked" : "Unlocked"}
             checked={locked}
@@ -398,19 +387,21 @@ export default function Dashboard() {
               }
             }}
           />
-          <button onClick={() => renameSession(activeSessionId)} style={liteBtn} disabled={!activeSessionId}>
-            Rename
-          </button>
-          <button onClick={() => duplicateSession(activeSessionId)} style={liteBtn} disabled={!activeSessionId}>
-            Duplicate
-          </button>
-          <button
-            onClick={() => deleteSession(activeSessionId)}
-            style={{ ...liteBtn, color: "crimson", borderColor: "crimson" }}
-            disabled={!activeSessionId}
-          >
-            Delete
-          </button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <button onClick={() => renameSession(activeSessionId)} style={liteBtn} disabled={!activeSessionId}>
+              Rename
+            </button>
+            <button onClick={() => duplicateSession(activeSessionId)} style={liteBtn} disabled={!activeSessionId}>
+              Duplicate
+            </button>
+            <button
+              onClick={() => deleteSession(activeSessionId)}
+              style={{ ...liteBtn, color: "crimson", borderColor: "crimson" }}
+              disabled={!activeSessionId}
+            >
+              Delete
+            </button>
+          </div>
         </div>
       </div>
 
