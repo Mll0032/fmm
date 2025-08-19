@@ -82,36 +82,8 @@ export default function DraggableGrid({
   // Calculate dynamic container size based on item positions
   const [containerSize, setContainerSize] = useState({ width: 0, height: 600 });
 
-  const [positions, setPositions] = useState(() => {
-    // Try to load saved positions first
-    if (sessionId) {
-      try {
-        const saved = localStorage.getItem(getStorageKey(sessionId));
-        if (saved) {
-          const savedPositions = JSON.parse(saved);
-          // Verify all current items have positions
-          const hasAllPositions = items.every(item => savedPositions[item.id]);
-          if (hasAllPositions) {
-            return savedPositions;
-          }
-        }
-      } catch (error) {
-        console.warn('Failed to load saved positions:', error);
-      }
-    }
-
-    // Initialize positions in a grid layout
-    const initialPositions = {};
-    items.forEach((item, index) => {
-      const col = index % 4; // 4 columns
-      const row = Math.floor(index / 4);
-      initialPositions[item.id] = {
-        x: col * (CARD_WIDTH + GRID_SIZE * 2),
-        y: row * (CARD_HEIGHT + GRID_SIZE * 2)
-      };
-    });
-    return initialPositions;
-  });
+  const [positions, setPositions] = useState({});
+  const [positionsLoaded, setPositionsLoaded] = useState(false);
 
   const containerRef = React.useRef(null);
 
@@ -186,91 +158,92 @@ export default function DraggableGrid({
       ...positions,
       [active.id]: newPosition
     };
+    // Position saved to localStorage
     setPositions(updatedPositions);
     savePositions(updatedPositions);
-  }, [positions, snapToGrid, disabled, savePositions]);
+  }, [positions, snapToGrid, disabled, savePositions, sessionId]);
 
   const handleDragStart = useCallback(() => {
     // Optional: Add any drag start logic here
   }, []);
 
-  // Auto-arrange items in grid when items change
-  React.useEffect(() => {
-    const newItems = items.filter(item => !positions[item.id]);
-    if (newItems.length > 0) {
-      const newPositions = { ...positions };
-      const existingPositions = Object.values(positions);
-      
-      newItems.forEach((item) => {
-        let col = 0;
-        let row = 0;
-        let position;
-        
-        // Find the first available grid position
-        let isOccupied = true;
-        while (isOccupied) {
-          position = {
-            x: col * (CARD_WIDTH + GRID_SIZE * 2),
-            y: row * (CARD_HEIGHT + GRID_SIZE * 2)
-          };
-          
-          isOccupied = existingPositions.some(pos => 
-            Math.abs(pos.x - position.x) < CARD_WIDTH && 
-            Math.abs(pos.y - position.y) < CARD_HEIGHT
-          );
-          
-          if (!isOccupied) {
-            break;
-          }
-          
-          col++;
-          if (col >= 4) {
-            col = 0;
-            row++;
-          }
-        }
-        
-        newPositions[item.id] = position;
-        existingPositions.push(position);
-      });
-      
-      setPositions(newPositions);
-      savePositions(newPositions);
-    }
-  }, [items, positions, savePositions]);
 
-  // Load positions when sessionId changes
+  // Initialize positions only when sessionId changes - much simpler approach
   React.useEffect(() => {
-    if (sessionId && items.length > 0) {
-      try {
-        const saved = localStorage.getItem(getStorageKey(sessionId));
-        if (saved) {
-          const savedPositions = JSON.parse(saved);
-          // Only load if all current items have saved positions
-          const hasAllPositions = items.every(item => savedPositions[item.id]);
-          if (hasAllPositions) {
-            setPositions(savedPositions);
-            return;
-          }
-        }
-      } catch (error) {
-        console.warn('Failed to load positions for session change:', error);
+    if (!sessionId) {
+      setPositions({});
+      setPositionsLoaded(true);
+      return;
+    }
+
+    // Mark as loading to prevent visual glitch
+    setPositionsLoaded(false);
+
+    // Load saved positions for this session
+    let savedPositions = {};
+    try {
+      const saved = localStorage.getItem(getStorageKey(sessionId));
+      if (saved) {
+        savedPositions = JSON.parse(saved);
+        // Positions loaded successfully
+      } else {
+        // No saved positions for this session
       }
+    } catch (error) {
+      console.warn('Failed to load positions for session:', sessionId, error);
+    }
+
+    setPositions(savedPositions);
+    setPositionsLoaded(true);
+  }, [sessionId, getStorageKey]);
+
+  // Handle items changes (add positions for new items)
+  React.useEffect(() => {
+    if (!sessionId || items.length === 0) {
+      return;
+    }
+
+    // Check if any items need positions
+    const itemsNeedingPositions = items.filter(item => !positions[item.id]);
+    if (itemsNeedingPositions.length === 0) {
+      return;
+    }
+
+    // Add positions for items that don't have them
+    const newPositions = { ...positions };
+    const existingPositions = Object.values(positions);
+    
+    itemsNeedingPositions.forEach((item, index) => {
+      // Find next available grid position
+      let gridIndex = existingPositions.length + index;
+      let position;
+      let attempts = 0;
       
-      // If no saved positions or missing items, reset to grid layout
-      const initialPositions = {};
-      items.forEach((item, index) => {
-        const col = index % 4;
-        const row = Math.floor(index / 4);
-        initialPositions[item.id] = {
+      do {
+        const col = gridIndex % 4;
+        const row = Math.floor(gridIndex / 4);
+        position = {
           x: col * (CARD_WIDTH + GRID_SIZE * 2),
           y: row * (CARD_HEIGHT + GRID_SIZE * 2)
         };
-      });
-      setPositions(initialPositions);
-      savePositions(initialPositions);
-    }
-  }, [sessionId, items, getStorageKey, savePositions]);
+        
+        const isOccupied = existingPositions.some(pos => 
+          Math.abs(pos.x - position.x) < CARD_WIDTH && 
+          Math.abs(pos.y - position.y) < CARD_HEIGHT
+        );
+        
+        if (!isOccupied) break;
+        gridIndex++;
+        attempts++;
+      } while (attempts < 100); // Safety valve
+      
+      newPositions[item.id] = position;
+      existingPositions.push(position);
+    });
+
+    setPositions(newPositions);
+    savePositions(newPositions);
+  }, [items, positions, sessionId, savePositions]);
 
   const modifiers = disabled ? [] : [snapCenterToCursor];
 
@@ -283,7 +256,7 @@ export default function DraggableGrid({
       modifiers={modifiers}
     >
       <DroppableGrid containerRef={containerRef} containerSize={containerSize}>
-        {items.map((item) => (
+        {positionsLoaded && items.map((item) => (
           <DraggableItem
             key={item.id}
             id={item.id}
