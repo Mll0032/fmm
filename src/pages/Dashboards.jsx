@@ -276,7 +276,8 @@ export default function Dashboard() {
         id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
         moduleId: activeModuleId,
         type,
-        sectionId
+        sectionId,
+        position: null // Will be assigned by DraggableGrid
       }
     ]);
   }
@@ -496,7 +497,7 @@ export default function Dashboard() {
         <DraggableGrid
           items={items}
           disabled={locked}
-          sessionId={activeSessionId}
+          onItemsChange={setItems}
           renderItem={(item) => (
             <DashboardCard
               item={item}
