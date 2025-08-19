@@ -103,9 +103,29 @@ export default function DashboardCard({
             Focus
           </button>
 
-          {!locked && (
-            <button onClick={onRemove} title="Remove" style={btn("transparent", "crimson")}>✕</button>
-          )}
+          <button 
+            onClick={locked ? undefined : onRemove} 
+            title={locked ? "" : "Remove"} 
+            style={{
+              padding: "6px 10px",
+              background: locked ? "transparent" : "transparent",
+              color: locked ? "transparent" : "crimson",
+              borderRadius: 8,
+              border: `1px solid ${locked ? "transparent" : "color-mix(in oklab, var(--text) 12%, transparent)"}`,
+              cursor: locked ? "default" : "pointer",
+              visibility: locked ? "hidden" : "visible",
+              width: "32px",
+              minWidth: "32px",
+              height: "32px",
+              minHeight: "32px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0
+            }}
+          >
+            ✕
+          </button>
         </div>
       </header>
 
