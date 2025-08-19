@@ -75,15 +75,21 @@ export default function DraggableGrid({
   items, 
   renderItem, 
   disabled = false,
-  sessionId // Add sessionId prop for persistence
+  onItemsChange // Callback to update items with new positions
 }) {
-  const getStorageKey = useCallback((sessionId) => `fizzrix.dashboard.positions.${sessionId}`, []);
-
   // Calculate dynamic container size based on item positions
   const [containerSize, setContainerSize] = useState({ width: 0, height: 600 });
 
-  const [positions, setPositions] = useState({});
-  const [positionsLoaded, setPositionsLoaded] = useState(false);
+  // Extract positions from items
+  const positions = React.useMemo(() => {
+    const pos = {};
+    items.forEach(item => {
+      if (item.position) {
+        pos[item.id] = item.position;
+      }
+    });
+    return pos;
+  }, [items]);
 
   const containerRef = React.useRef(null);
 
@@ -97,16 +103,6 @@ export default function DraggableGrid({
   const snapToGrid = useCallback((value) => {
     return Math.round(value / GRID_SIZE) * GRID_SIZE;
   }, []);
-
-  const savePositions = useCallback((newPositions) => {
-    if (sessionId) {
-      try {
-        localStorage.setItem(getStorageKey(sessionId), JSON.stringify(newPositions));
-      } catch (error) {
-        console.warn('Failed to save positions:', error);
-      }
-    }
-  }, [sessionId, getStorageKey]);
 
   // Calculate required container size based on item positions
   const calculateContainerSize = useCallback((itemPositions) => {
@@ -137,7 +133,7 @@ export default function DraggableGrid({
   }, [positions, calculateContainerSize]);
 
   const handleDragEnd = useCallback((event) => {
-    if (disabled) return;
+    if (disabled || !onItemsChange) return;
     
     const { active, delta } = event;
     
@@ -149,73 +145,47 @@ export default function DraggableGrid({
       y: Math.max(0, snapToGrid(currentPosition.y + delta.y))
     };
 
-    // Allow expansion - only enforce minimum bounds (no maximum bounds)
-    // This lets users drag items beyond current container size to expand it
-    newPosition.x = Math.max(0, newPosition.x);
-    newPosition.y = Math.max(0, newPosition.y);
-
-    const updatedPositions = {
-      ...positions,
-      [active.id]: newPosition
-    };
-    // Position saved to localStorage
-    setPositions(updatedPositions);
-    savePositions(updatedPositions);
-  }, [positions, snapToGrid, disabled, savePositions, sessionId]);
+    // Update the item with the new position
+    const updatedItems = items.map(item => 
+      item.id === active.id 
+        ? { ...item, position: newPosition }
+        : item
+    );
+    
+    onItemsChange(updatedItems);
+  }, [positions, snapToGrid, disabled, onItemsChange, items]);
 
   const handleDragStart = useCallback(() => {
     // Optional: Add any drag start logic here
   }, []);
 
 
-  // Initialize positions only when sessionId changes - much simpler approach
+  // Clean up any old localStorage position data on first load
   React.useEffect(() => {
-    if (!sessionId) {
-      setPositions({});
-      setPositionsLoaded(true);
-      return;
-    }
-
-    // Mark as loading to prevent visual glitch
-    setPositionsLoaded(false);
-
-    // Load saved positions for this session
-    let savedPositions = {};
-    try {
-      const saved = localStorage.getItem(getStorageKey(sessionId));
-      if (saved) {
-        savedPositions = JSON.parse(saved);
-        // Positions loaded successfully
-      } else {
-        // No saved positions for this session
+    const keys = Object.keys(localStorage);
+    keys.forEach(key => {
+      if (key.startsWith('fizzrix.dashboard.positions.')) {
+        localStorage.removeItem(key);
       }
-    } catch (error) {
-      console.warn('Failed to load positions for session:', sessionId, error);
-    }
+    });
+  }, []);
 
-    setPositions(savedPositions);
-    setPositionsLoaded(true);
-  }, [sessionId, getStorageKey]);
-
-  // Handle items changes (add positions for new items)
+  // Assign positions to items that don't have them
   React.useEffect(() => {
-    if (!sessionId || items.length === 0) {
-      return;
-    }
+    if (!onItemsChange) return;
 
-    // Check if any items need positions
-    const itemsNeedingPositions = items.filter(item => !positions[item.id]);
-    if (itemsNeedingPositions.length === 0) {
-      return;
-    }
+    const itemsNeedingPositions = items.filter(item => !item.position);
+    if (itemsNeedingPositions.length === 0) return;
 
-    // Add positions for items that don't have them
-    const newPositions = { ...positions };
-    const existingPositions = Object.values(positions);
+    const existingPositions = items
+      .filter(item => item.position)
+      .map(item => item.position);
     
-    itemsNeedingPositions.forEach((item, index) => {
+    const updatedItems = items.map((item) => {
+      if (item.position) return item;
+
       // Find next available grid position
-      let gridIndex = existingPositions.length + index;
+      let gridIndex = existingPositions.length;
       let position;
       let attempts = 0;
       
@@ -232,18 +202,19 @@ export default function DraggableGrid({
           Math.abs(pos.y - position.y) < CARD_HEIGHT
         );
         
-        if (!isOccupied) break;
+        if (!isOccupied) {
+          existingPositions.push(position);
+          break;
+        }
         gridIndex++;
         attempts++;
-      } while (attempts < 100); // Safety valve
+      } while (attempts < 100);
       
-      newPositions[item.id] = position;
-      existingPositions.push(position);
+      return { ...item, position };
     });
 
-    setPositions(newPositions);
-    savePositions(newPositions);
-  }, [items, positions, sessionId, savePositions]);
+    onItemsChange(updatedItems);
+  }, [items, onItemsChange]);
 
   const modifiers = disabled ? [] : [snapCenterToCursor];
 
@@ -256,11 +227,11 @@ export default function DraggableGrid({
       modifiers={modifiers}
     >
       <DroppableGrid containerRef={containerRef} containerSize={containerSize}>
-        {positionsLoaded && items.map((item) => (
+        {items.map((item) => (
           <DraggableItem
             key={item.id}
             id={item.id}
-            position={positions[item.id] || { x: 0, y: 0 }}
+            position={item.position || { x: 0, y: 0 }}
             disabled={disabled}
           >
             {renderItem(item)}
