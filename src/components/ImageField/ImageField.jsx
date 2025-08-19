@@ -1,4 +1,21 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
+
+// Hover-enabled button component
+function HoverButton({ children, onClick, style, hoverStyle, ...props }) {
+  const [isHovered, setIsHovered] = useState(false);
+  
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={isHovered ? hoverStyle : style}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
 
 export default function ImageField({
   label = "Image",
@@ -53,20 +70,32 @@ export default function ImageField({
             style={{ color: "var(--muted)" }}
           />
           {dataUrl && (
-            <button
+            <HoverButton
               type="button"
               onClick={clearImage}
               style={{
                 padding: "6px 10px",
                 borderRadius: 8,
-                border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)",
-                background: "transparent",
-                color: "var(--text)",
-                cursor: "pointer"
+                border: "1px solid color-mix(in oklab, var(--brand) 30%, transparent)",
+                background: "linear-gradient(90deg, var(--brand), var(--brand-2))",
+                color: "#0b0d12",
+                cursor: "pointer",
+                fontWeight: 600,
+                transition: "background 0.2s ease"
+              }}
+              hoverStyle={{
+                padding: "6px 10px",
+                borderRadius: 8,
+                border: "1px solid color-mix(in oklab, var(--brand) 30%, transparent)",
+                background: "linear-gradient(270deg, var(--brand), var(--brand-2))",
+                color: "#0b0d12",
+                cursor: "pointer",
+                fontWeight: 600,
+                transition: "background 0.2s ease"
               }}
             >
               Remove
-            </button>
+            </HoverButton>
           )}
         </div>
 
