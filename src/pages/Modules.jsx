@@ -179,11 +179,12 @@ export default function Modules() {
                           flex: 1,
                           textAlign: "left",
                           padding: "10px 12px",
-                          background: "var(--surface)",
-                          color: "var(--text)",
+                          background: "linear-gradient(90deg, var(--brand), var(--brand-2))",
+                          color: "#0b0d12",
                           borderRadius: "10px",
-                          border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)",
-                          cursor: "pointer"
+                          border: "1px solid color-mix(in oklab, var(--brand) 30%, transparent)",
+                          cursor: "pointer",
+                          fontWeight: 600
                         }}
                       >
                         {m.name}
