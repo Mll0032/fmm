@@ -7,37 +7,8 @@ import Modal from "../components/Modal/Modal";
 import PillToggle from "../components/PillToggle/PillToggle";
 import SearchableDropdown from "../components/SearchableDropdown/SearchableDropdown";
 
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  KeyboardSensor,
-  useSensor,
-  useSensors
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-  arrayMove
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import DraggableGrid from "../components/DraggableGrid/DraggableGrid";
 
-function SortableCard({ item, disabled = false, children }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: item.id, disabled });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.85 : 1
-  };
-  const dragProps = disabled ? {} : { ...attributes, ...listeners };
-  return (
-    <div ref={setNodeRef} style={style} {...dragProps}>
-      {children}
-    </div>
-  );
-}
 
 const ACTIVE_MODULE_KEY = "fizzrix.dashboard.activeModule";
 const ACTIVE_SESSION_KEY = "fizzrix.dashboard.activeSession";
@@ -158,10 +129,6 @@ export default function Dashboard() {
   const locked = !!activeSession?.locked;
 
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor)
-  );
 
   // Sections list is from the active module
   const selectedModule = useMemo(() => {
@@ -316,14 +283,6 @@ export default function Dashboard() {
   function clearAll() {
     if (locked) return;
     if (confirm("Remove all cards from this session?")) setItems([]);
-  }
-  function onDragEnd(event) {
-    if (locked) return;
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const oldIndex = items.findIndex((i) => i.id === active.id);
-    const newIndex = items.findIndex((i) => i.id === over.id);
-    setItems(arrayMove(items, oldIndex, newIndex));
   }
 
 
@@ -522,23 +481,32 @@ export default function Dashboard() {
       )}
 
       {/* Cards grid */}
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-        <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-          <div style={grid}>
-            {items.length === 0 && <div style={{ color: "var(--muted)" }}>No cards in this session yet.</div>}
-            {items.map((it) => (
-              <SortableCard key={it.id} item={it} disabled={locked}>
-                <DashboardCard
-                  item={it}
-                  locked={locked}
-                  onRemove={() => setItems(items.filter((x) => x.id !== it.id))}
-                  onFocus={(payload) => setFocus(payload)}
-                />
-              </SortableCard>
-            ))}
-          </div>
-        </SortableContext>
-      </DndContext>
+      {items.length === 0 ? (
+        <div style={{ 
+          color: "var(--muted)", 
+          textAlign: "center", 
+          padding: "40px",
+          background: "var(--bg-elev)",
+          borderRadius: "var(--radius)",
+          border: "1px solid color-mix(in oklab, var(--text) 10%, transparent)"
+        }}>
+          No cards in this session yet.
+        </div>
+      ) : (
+        <DraggableGrid
+          items={items}
+          disabled={locked}
+          sessionId={activeSessionId}
+          renderItem={(item) => (
+            <DashboardCard
+              item={item}
+              locked={locked}
+              onRemove={() => setItems(items.filter((x) => x.id !== item.id))}
+              onFocus={(payload) => setFocus(payload)}
+            />
+          )}
+        />
+      )}
 
       {/* Focus Mode */}
       <Modal open={!!focus} title={focus?.title || "Focus"} onClose={() => setFocus(null)}>
@@ -606,9 +574,4 @@ const liteBtn = {
   borderRadius: 999,
   border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)",
   cursor: "pointer"
-};
-const grid = {
-  display: "grid",
-  gap: 12,
-  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))"
 };
