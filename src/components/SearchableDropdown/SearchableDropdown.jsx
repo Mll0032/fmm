@@ -5,7 +5,8 @@ export default function SearchableDropdown({
   placeholder = "Search...",
   items = [],
   onSelect,
-  disabled = false
+  disabled = false,
+  selectedValue = "" // Add selectedValue prop
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -52,11 +53,11 @@ export default function SearchableDropdown({
         <input
           ref={inputRef}
           type="text"
-          value={searchTerm}
+          value={isOpen ? searchTerm : selectedValue}
           onChange={(e) => setSearchTerm(e.target.value)}
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
-          placeholder={placeholder}
+          placeholder={selectedValue || placeholder}
           disabled={disabled}
           style={{
             ...inputStyle,
