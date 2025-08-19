@@ -99,9 +99,9 @@ export default function DashboardCard({
       <header style={head}>
         <h4 style={{ margin: 0, fontSize: 16 }}>{s.title}</h4>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-          <button onClick={() => onFocus?.(s)} title="Focus" style={btn("var(--surface)")}>
+          <HoverButton onClick={() => onFocus?.(s)} title="Focus" style={btn()} hoverStyle={btnHover()}>
             Focus
-          </button>
+          </HoverButton>
 
           <button 
             onClick={locked ? undefined : onRemove} 
@@ -167,14 +167,46 @@ const body = {
   overflow: "auto",
 };
 
-function btn(bg, color) {
+function btn() {
   return {
     padding: "6px 10px",
-    background: bg,
-    color: color || "var(--text)",
+    background: "linear-gradient(90deg, var(--brand), var(--brand-2))",
+    color: "#0b0d12",
     borderRadius: 8,
-    border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)",
+    border: "1px solid color-mix(in oklab, var(--brand) 30%, transparent)",
     cursor: "pointer",
+    fontWeight: 600,
+    transition: "background 0.2s ease"
   };
+}
+
+function btnHover() {
+  return {
+    padding: "6px 10px",
+    background: "linear-gradient(270deg, var(--brand), var(--brand-2))",
+    color: "#0b0d12",
+    borderRadius: 8,
+    border: "1px solid color-mix(in oklab, var(--brand) 30%, transparent)",
+    cursor: "pointer",
+    fontWeight: 600,
+    transition: "background 0.2s ease"
+  };
+}
+
+// Hover-enabled button component
+function HoverButton({ children, onClick, style, hoverStyle, ...props }) {
+  const [isHovered, setIsHovered] = useState(false);
+  
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={isHovered ? hoverStyle : style}
+      {...props}
+    >
+      {children}
+    </button>
+  );
 }
 
