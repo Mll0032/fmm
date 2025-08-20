@@ -152,7 +152,8 @@ function Dashboard() {
       .map((monster) => ({
         key: `monster:${monster.id}`, 
         label: monster.name || "Monster"
-      }));
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
   }, [selectedModule]);
 
   // Magic items for searchable dropdown (show all items, not just those with showOnDashboard)
@@ -163,7 +164,8 @@ function Dashboard() {
       .map((item) => ({
         key: `magicItem:${item.id}`, 
         label: item.name || "Magic Item"
-      }));
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
   }, [selectedModule]);
 
   // --- Session CRUD ---
