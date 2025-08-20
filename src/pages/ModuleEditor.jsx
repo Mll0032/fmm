@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate, useParams, useBeforeUnload, useLocation } from "react-router-dom";
 import { ModulesStore } from "../state/modulesStore";
+import { useData } from "../hooks/useData.js";
 import Toast from "../components/Toast/Toast";
 import ImageField from "../components/ImageField/ImageField";
 
@@ -56,6 +57,7 @@ function TextRow({ label, value, onChange, placeholder, multiline = false }) {
 export default function ModuleEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { updateModule, renameModule } = useData();
   const [moduleData, setModuleData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -463,16 +465,22 @@ export default function ModuleEditor() {
     try {
       setSaving(true);
       
+      let updatedModule;
+      
       // Save title if changed
       if (rename.trim() && rename.trim() !== moduleData.name) {
-        await ModulesStore.rename(moduleData.id, rename.trim());
+        updatedModule = await renameModule(moduleData.id, rename.trim());
       }
-      // Save all section content
-      await ModulesStore.updateData(moduleData.id, () => data);
+      
+      // Save all section content using DataContext to update cache
+      updatedModule = await updateModule(moduleData.id, () => data);
 
-      // Refresh local meta and toast
-      const updated = await ModulesStore.get(moduleData.id);
-      setLastSaved(updated?.updatedAt || new Date().toISOString());
+      // Update local state
+      if (updatedModule) {
+        setModuleData(updatedModule);
+        setLastSaved(updatedModule.updatedAt || new Date().toISOString());
+        setRename(updatedModule.name); // Update rename field to match saved name
+      }
       setDirty(false);
       setToast(true);
     } catch (error) {
@@ -798,31 +806,6 @@ export default function ModuleEditor() {
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <h3 style={{ margin: 0 }}>Monsters Appendix</h3>
-              <HoverButton
-                onClick={addMonster}
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: 10,
-                  border: 0,
-                  cursor: "pointer",
-                  background: "linear-gradient(90deg, var(--brand), var(--brand-2))",
-                  color: "#0b0d12",
-                  fontWeight: 700,
-                  transition: "background 0.2s ease"
-                }}
-                hoverStyle={{
-                  padding: "8px 12px",
-                  borderRadius: 10,
-                  border: 0,
-                  cursor: "pointer",
-                  background: "linear-gradient(270deg, var(--brand), var(--brand-2))",
-                  color: "#0b0d12",
-                  fontWeight: 700,
-                  transition: "background 0.2s ease"
-                }}
-              >
-                + Add Monster
-              </HoverButton>
             </div>
 
             <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 10 }}>
@@ -887,22 +870,10 @@ export default function ModuleEditor() {
                 </li>
               ))}
             </ul>
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-              gap: 12,
-              background: "var(--bg-elev)",
-              padding: 12,
-              borderRadius: "var(--radius)",
-              border: "1px solid color-mix(in oklab, var(--text) 10%, transparent)"
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <h3 style={{ margin: 0 }}>Magic Items Appendix</h3>
+            
+            <div style={{ display: "flex", justifyContent: "center", paddingTop: "12px" }}>
               <HoverButton
-                onClick={addMagicItem}
+                onClick={addMonster}
                 style={{
                   padding: "8px 12px",
                   borderRadius: 10,
@@ -924,8 +895,23 @@ export default function ModuleEditor() {
                   transition: "background 0.2s ease"
                 }}
               >
-                + Add Magic Item
+                + Add Monster
               </HoverButton>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gap: 12,
+              background: "var(--bg-elev)",
+              padding: 12,
+              borderRadius: "var(--radius)",
+              border: "1px solid color-mix(in oklab, var(--text) 10%, transparent)"
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <h3 style={{ margin: 0 }}>Magic Items Appendix</h3>
             </div>
 
             <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 10 }}>
@@ -990,6 +976,34 @@ export default function ModuleEditor() {
                 </li>
               ))}
             </ul>
+            
+            <div style={{ display: "flex", justifyContent: "center", paddingTop: "12px" }}>
+              <HoverButton
+                onClick={addMagicItem}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  border: 0,
+                  cursor: "pointer",
+                  background: "linear-gradient(90deg, var(--brand), var(--brand-2))",
+                  color: "#0b0d12",
+                  fontWeight: 700,
+                  transition: "background 0.2s ease"
+                }}
+                hoverStyle={{
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  border: 0,
+                  cursor: "pointer",
+                  background: "linear-gradient(270deg, var(--brand), var(--brand-2))",
+                  color: "#0b0d12",
+                  fontWeight: 700,
+                  transition: "background 0.2s ease"
+                }}
+              >
+                + Add Magic Item
+              </HoverButton>
+            </div>
           </div>
         </div>
 
