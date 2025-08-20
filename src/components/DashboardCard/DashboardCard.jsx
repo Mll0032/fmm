@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { ModulesStore } from "../../state/modulesStore";
+import React, { useState, useMemo } from "react";
+import { useData } from "../../hooks/useData.js";
 
 function sectionData(module, item) {
   if (!module || !module.data) return { title: "Loading...", text: "" };
@@ -51,45 +51,28 @@ function sectionData(module, item) {
   }
 }
 
-export default function DashboardCard({
+function DashboardCard({
   item,
   onRemove,
   onFocus,
   locked = false,
 }) {
-  const [module, setModule] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { modules } = useData();
   
-  useEffect(() => {
-    async function loadModule() {
-      try {
-        setLoading(true);
-        const moduleData = await ModulesStore.get(item.moduleId);
-        setModule(moduleData);
-      } catch (error) {
-        console.error('Error loading module for dashboard card:', error);
-        setModule(null);
-      } finally {
-        setLoading(false);
-      }
-    }
-    
-    if (item.moduleId) {
-      loadModule();
-    }
-  }, [item.moduleId]);
+  // Get module from cached data
+  const module = useMemo(() => {
+    return modules.find(m => m.id === item.moduleId) || null;
+  }, [modules, item.moduleId]);
   
-  if (loading) {
+  if (!module) {
     return (
       <article style={card}>
         <header style={head}>
-          <h4 style={{ margin: 0, fontSize: 16 }}>Loading...</h4>
+          <h4 style={{ margin: 0, fontSize: 16 }}>Module not found</h4>
         </header>
       </article>
     );
   }
-  
-  if (!module) return null;
 
   const s = sectionData(module, item);
   const showImage = s.image?.dataUrl && s.image?.showOnDashboard;
@@ -194,7 +177,7 @@ function btnHover() {
 }
 
 // Hover-enabled button component
-function HoverButton({ children, onClick, style, hoverStyle, ...props }) {
+const HoverButton = React.memo(function HoverButton({ children, onClick, style, hoverStyle, ...props }) {
   const [isHovered, setIsHovered] = useState(false);
   
   return (
@@ -208,5 +191,7 @@ function HoverButton({ children, onClick, style, hoverStyle, ...props }) {
       {children}
     </button>
   );
-}
+});
+
+export default React.memo(DashboardCard);
 
