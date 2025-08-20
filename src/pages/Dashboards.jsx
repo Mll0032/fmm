@@ -106,12 +106,7 @@ function Dashboard() {
     }
   }, [activeModuleId, loadSessions]);
 
-  // Set initial active module when modules load
-  useEffect(() => {
-    if (modules.length > 0 && !activeModuleId) {
-      setActiveModule(modules[0].id);
-    }
-  }, [modules, activeModuleId, setActiveModule]);
+  // Module initialization is now handled in DataContext
 
   // Set initial active session when sessions load
   useEffect(() => {
@@ -119,6 +114,11 @@ function Dashboard() {
       setActiveSession(sessionsForActiveModule[0].id);
     }
   }, [sessionsForActiveModule, activeSessionId, setActiveSession]);
+
+  // Sort modules alphabetically for display
+  const sortedModules = useMemo(() => {
+    return [...modules].sort((a, b) => a.name.localeCompare(b.name));
+  }, [modules]);
   
   const items = activeSession?.items || [];
   const locked = !!activeSession?.locked;
@@ -306,7 +306,7 @@ function Dashboard() {
         <SearchableDropdown
           label=""
           placeholder="Select a module..."
-          items={modules.map(m => ({ key: m.id, label: m.name }))}
+          items={sortedModules.map(m => ({ key: m.id, label: m.name }))}
           onSelect={(item) => setActiveModule(item.key)}
           selectedValue={modules.find(m => m.id === activeModuleId)?.name || ""}
         />
