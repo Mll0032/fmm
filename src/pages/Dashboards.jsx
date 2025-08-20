@@ -1,17 +1,12 @@
 // src/pages/Dashboard.jsx
-import React, { useEffect, useMemo, useState } from "react";
-import { ModulesStore } from "../state/modulesStore";
-import { SessionsStore } from "../state/sessionsStore";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
+import { useData } from "../hooks/useData.js";
 import DashboardCard from "../components/DashboardCard/DashboardCard";
 import Modal from "../components/Modal/Modal";
 import PillToggle from "../components/PillToggle/PillToggle";
 import SearchableDropdown from "../components/SearchableDropdown/SearchableDropdown";
 
 import DraggableGrid from "../components/DraggableGrid/DraggableGrid";
-
-
-const ACTIVE_MODULE_KEY = "fizzrix.dashboard.activeModule";
-const ACTIVE_SESSION_KEY = "fizzrix.dashboard.activeSession";
 
 // Hover-enabled button components
 function HoverButton({ children, onClick, style, hoverStyle, ...props }) {
@@ -80,127 +75,58 @@ function Tooltip({ children, text }) {
   );
 }
 
-export default function Dashboard() {
-  const [modules, setModules] = useState([]);
-  const [loadingModules, setLoadingModules] = useState(true);
+function Dashboard() {
+  const {
+    modules,
+    activeModuleId,
+    activeSessionId,
+    activeModule,
+    activeSession,
+    sessionsForActiveModule,
+    loading,
+    loadModules,
+    loadSessions,
+    addSession,
+    updateSession,
+    removeSession,
+    duplicateSession,
+    setActiveModule,
+    setActiveSession
+  } = useData();
 
-  // Load modules asynchronously
+  // Load initial data
   useEffect(() => {
-    async function loadModules() {
-      try {
-        setLoadingModules(true);
-        const modulesList = await ModulesStore.list();
-        setModules(modulesList);
-      } catch (error) {
-        console.error('Error loading modules:', error);
-        setModules([]);
-      } finally {
-        setLoadingModules(false);
-      }
-    }
     loadModules();
-  }, []);
+  }, [loadModules]);
 
-  // ----- Active module (persisted) -----
-  const [activeModuleId, setActiveModuleId] = useState("");
-  
+  // Load sessions when active module changes
+  useEffect(() => {
+    if (activeModuleId) {
+      loadSessions(activeModuleId);
+    }
+  }, [activeModuleId, loadSessions]);
+
   // Set initial active module when modules load
   useEffect(() => {
     if (modules.length > 0 && !activeModuleId) {
-      const fromLS = localStorage.getItem(ACTIVE_MODULE_KEY);
-      const exists = modules.some(m => m.id === fromLS);
-      setActiveModuleId(exists ? fromLS : (modules[0]?.id || ""));
+      setActiveModule(modules[0].id);
     }
-  }, [modules, activeModuleId]);
-  useEffect(() => {
-    if (activeModuleId) {
-      localStorage.setItem(ACTIVE_MODULE_KEY, activeModuleId);
-    }
-  }, [activeModuleId]);
+  }, [modules, activeModuleId, setActiveModule]);
 
-  // ----- Active session (persisted and validated per module) -----
-  const [activeSessionId, setActiveSessionId] = useState("");
-  const [sessionsForModule, setSessionsForModule] = useState([]);
-  const [_loadingSessions, setLoadingSessions] = useState(false);
-  
-  // Ensure the module has at least one session when activeModuleId changes
+  // Set initial active session when sessions load
   useEffect(() => {
-    async function loadSessions() {
-      if (activeModuleId) {
-        try {
-          setLoadingSessions(true);
-          const sessions = await SessionsStore.ensureDefaultForModule(activeModuleId);
-          setSessionsForModule(sessions);
-          
-          // Set active session
-          const fromLS = localStorage.getItem(ACTIVE_SESSION_KEY);
-          const valid = await SessionsStore.get(fromLS);
-          const nextId = valid?.moduleId === activeModuleId
-            ? fromLS
-            : (sessions[0]?.id || "");
-          setActiveSessionId(nextId);
-        } catch (error) {
-          console.error('Error loading sessions:', error);
-          setSessionsForModule([]);
-        } finally {
-          setLoadingSessions(false);
-        }
-      }
+    if (sessionsForActiveModule.length > 0 && !activeSessionId) {
+      setActiveSession(sessionsForActiveModule[0].id);
     }
-    loadSessions();
-  }, [activeModuleId]);
-  // This useEffect is now handled above in the activeModuleId effect
-  useEffect(() => {
-    if (activeSessionId) localStorage.setItem(ACTIVE_SESSION_KEY, activeSessionId);
-  }, [activeSessionId]);
-
-  // ----- Reactivity: listen to store changes and storage events -----
-  const [tick, setTick] = useState(0);
-  useEffect(() => {
-    const bump = () => setTick(t => t + 1);
-    window.addEventListener(SessionsStore.CHANGE_EVENT, bump);
-    window.addEventListener("storage", (e) => {
-      if (e.key === SessionsStore.KEY) bump();
-    });
-    return () => {
-      window.removeEventListener(SessionsStore.CHANGE_EVENT, bump);
-      window.removeEventListener("storage", bump);
-    };
-  }, []);
-
-  const [activeSession, setActiveSession] = useState(null);
-  const [_loadingActiveSession, setLoadingActiveSession] = useState(false);
-  
-  // Load active session when activeSessionId changes
-  useEffect(() => {
-    async function loadActiveSession() {
-      if (activeSessionId) {
-        try {
-          setLoadingActiveSession(true);
-          const session = await SessionsStore.get(activeSessionId);
-          setActiveSession(session);
-        } catch (error) {
-          console.error('Error loading active session:', error);
-          setActiveSession(null);
-        } finally {
-          setLoadingActiveSession(false);
-        }
-      } else {
-        setActiveSession(null);
-      }
-    }
-    loadActiveSession();
-  }, [activeSessionId, tick]);
+  }, [sessionsForActiveModule, activeSessionId, setActiveSession]);
   
   const items = activeSession?.items || [];
   const locked = !!activeSession?.locked;
 
 
 
-  // Sections list is from the active module
-  const selectedModule = useMemo(() => {
-    return modules.find(m => m.id === activeModuleId) || null;
-  }, [modules, activeModuleId]);
+  // Use the active module from context
+  const selectedModule = activeModule;
   // Basic sections that always show as buttons
   const basicSections = useMemo(() => [
     { key: "map", label: "Map of Overall Area" },
@@ -241,83 +167,69 @@ export default function Dashboard() {
   }, [selectedModule]);
 
   // --- Session CRUD ---
-  async function addSession() {
+  const handleAddSession = useCallback(async () => {
     try {
-      const sessions = await SessionsStore.listByModule(activeModuleId);
-      const count = sessions.length;
-      const s = await SessionsStore.create(activeModuleId, `Session ${count + 1}`);
-      setActiveSessionId(s.id);
-      // Refresh sessions list
-      const updatedSessions = await SessionsStore.listByModule(activeModuleId);
-      setSessionsForModule(updatedSessions);
-      setTick(t => t + 1);
+      const count = sessionsForActiveModule.length;
+      const session = await addSession(activeModuleId, `Session ${count + 1}`);
+      setActiveSession(session.id);
     } catch (error) {
       console.error('Error adding session:', error);
       alert('Error creating session. Please try again.');
     }
-  }
-  async function renameSession(sessionId) {
+  }, [activeModuleId, sessionsForActiveModule.length, addSession, setActiveSession]);
+
+  const handleRenameSession = useCallback(async (sessionId) => {
     try {
-      const current = await SessionsStore.get(sessionId);
+      const current = sessionsForActiveModule.find(s => s.id === sessionId);
       const name = prompt("Rename session", current?.name || "");
       if (name && name.trim()) {
-        await SessionsStore.rename(sessionId, name.trim());
-        // Refresh sessions list
-        const updatedSessions = await SessionsStore.listByModule(activeModuleId);
-        setSessionsForModule(updatedSessions);
-        setTick(t => t + 1);
+        await updateSession(sessionId, { name: name.trim() });
       }
     } catch (error) {
       console.error('Error renaming session:', error);
       alert('Error renaming session. Please try again.');
     }
-  }
-  async function duplicateSession(sessionId) {
+  }, [sessionsForActiveModule, updateSession]);
+
+  const handleDuplicateSession = useCallback(async (sessionId) => {
     try {
-      const dup = await SessionsStore.duplicate(sessionId);
+      const dup = await duplicateSession(sessionId);
       if (dup) {
-        setActiveModuleId(dup.moduleId);
-        setActiveSessionId(dup.id);
-        // Refresh sessions list
-        const updatedSessions = await SessionsStore.listByModule(activeModuleId);
-        setSessionsForModule(updatedSessions);
-        setTick(t => t + 1);
+        setActiveModule(dup.moduleId);
+        setActiveSession(dup.id);
       }
     } catch (error) {
       console.error('Error duplicating session:', error);
       alert('Error duplicating session. Please try again.');
     }
-  }
-  async function deleteSession(sessionId) {
+  }, [duplicateSession, setActiveModule, setActiveSession]);
+
+  const handleDeleteSession = useCallback(async (sessionId) => {
     try {
-      const list = await SessionsStore.listByModule(activeModuleId);
-      if (list.length <= 1) {
+      if (sessionsForActiveModule.length <= 1) {
         alert("A module must have at least one session.");
         return;
       }
       if (confirm("Delete this session? This cannot be undone.")) {
-        await SessionsStore.remove(sessionId);
-        const remaining = await SessionsStore.listByModule(activeModuleId);
-        setActiveSessionId(remaining[0]?.id || "");
-        setSessionsForModule(remaining);
-        setTick(t => t + 1);
+        await removeSession(activeModuleId, sessionId);
+        const remaining = sessionsForActiveModule.filter(s => s.id !== sessionId);
+        setActiveSession(remaining[0]?.id || "");
       }
     } catch (error) {
       console.error('Error deleting session:', error);
       alert('Error deleting session. Please try again.');
     }
-  }
+  }, [activeModuleId, sessionsForActiveModule, removeSession, setActiveSession]);
 
-  // --- Items ops (persist via SessionsStore) ---
-  const setItems = async (next) => {
+  // --- Items ops ---
+  const setItems = useCallback(async (next) => {
     try {
-      await SessionsStore.setItems(activeSessionId, next);
-      setTick(t => t + 1);
+      await updateSession(activeSessionId, { items: next });
     } catch (error) {
       console.error('Error updating session items:', error);
       alert('Error updating dashboard. Please try again.');
     }
-  };
+  }, [activeSessionId, updateSession]);
 
   function addSection(key) {
     if (!selectedModule || locked) return;
@@ -358,7 +270,7 @@ export default function Dashboard() {
   const [focus, setFocus] = useState(null);
 
   // Show loading state while modules are being loaded
-  if (loadingModules) {
+  if (loading.modules && modules.length === 0) {
     return (
       <section style={{ padding: "20px 0" }}>
         <h2>Session Dashboard</h2>
@@ -395,7 +307,7 @@ export default function Dashboard() {
           label=""
           placeholder="Select a module..."
           items={modules.map(m => ({ key: m.id, label: m.name }))}
-          onSelect={(item) => setActiveModuleId(item.key)}
+          onSelect={(item) => setActiveModule(item.key)}
           selectedValue={modules.find(m => m.id === activeModuleId)?.name || ""}
         />
       </div>
@@ -418,12 +330,12 @@ export default function Dashboard() {
             <SearchableDropdown
               label=""
               placeholder="Select a session..."
-              items={sessionsForModule.map(s => ({ key: s.id, label: s.name }))}
-              onSelect={(item) => setActiveSessionId(item.key)}
-              selectedValue={sessionsForModule.find(s => s.id === activeSessionId)?.name || ""}
+              items={sessionsForActiveModule.map(s => ({ key: s.id, label: s.name }))}
+              onSelect={(item) => setActiveSession(item.key)}
+              selectedValue={sessionsForActiveModule.find(s => s.id === activeSessionId)?.name || ""}
             />
             <HoverButton
-              onClick={addSession}
+              onClick={handleAddSession}
               style={{
                 padding: "8px 12px",
                 borderRadius: 8,
@@ -458,8 +370,7 @@ export default function Dashboard() {
               checked={locked}
               onChange={async (v) => {
                 try {
-                  await SessionsStore.setLocked(activeSessionId, v);
-                  setTick(t => t + 1);
+                  await updateSession(activeSessionId, { locked: v });
                 } catch (error) {
                   console.error('Error updating session lock:', error);
                   alert('Error updating session lock. Please try again.');
@@ -479,7 +390,7 @@ export default function Dashboard() {
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <HoverButton 
-              onClick={() => renameSession(activeSessionId)} 
+              onClick={() => handleRenameSession(activeSessionId)} 
               style={liteBtn}
               hoverStyle={liteBtnHover}
               disabled={!activeSessionId}
@@ -487,7 +398,7 @@ export default function Dashboard() {
               Rename
             </HoverButton>
             <HoverButton 
-              onClick={() => duplicateSession(activeSessionId)} 
+              onClick={() => handleDuplicateSession(activeSessionId)} 
               style={liteBtn}
               hoverStyle={liteBtnHover}
               disabled={!activeSessionId}
@@ -495,7 +406,7 @@ export default function Dashboard() {
               Duplicate
             </HoverButton>
             <button
-              onClick={() => deleteSession(activeSessionId)}
+              onClick={() => handleDeleteSession(activeSessionId)}
               style={{ ...liteBtn, color: "crimson", borderColor: "crimson" }}
               disabled={!activeSessionId}
             >
@@ -682,3 +593,5 @@ const liteBtnHover = {
   ...liteBtn,
   background: "linear-gradient(270deg, var(--brand), var(--brand-2))"
 };
+
+export default React.memo(Dashboard);
