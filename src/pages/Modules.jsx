@@ -1,37 +1,18 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { ModulesStore } from "../state/modulesStore";
+import { useData } from "../hooks/useData.js";
 
-function useModules() {
-  const [modules, setModules] = useState([]);
-  const [loading, setLoading] = useState(true);
-  
-  const loadModules = async () => {
-    try {
-      setLoading(true);
-      const modulesList = await ModulesStore.list();
-      setModules(modulesList);
-    } catch (error) {
-      console.error('Error loading modules:', error);
-      setModules([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadModules();
-  }, []);
-
-  return { modules, loading, refresh: loadModules };
-}
-
-export default function Modules() {
+function Modules() {
   const navigate = useNavigate();
-  const { modules, loading, refresh } = useModules();
+  const { modules, loading, loadModules, addModule, removeModule } = useData();
   const [name, setName] = useState("");
   const [category, setCategory] = useState("one-shot");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Load modules on mount
+  useEffect(() => {
+    loadModules();
+  }, [loadModules]);
 
   const byCategory = useMemo(() => {
     return {
@@ -40,13 +21,13 @@ export default function Modules() {
     };
   }, [modules]);
 
-  async function handleAdd(e) {
+  const handleAdd = useCallback(async (e) => {
     e.preventDefault();
     if (!name.trim() || isSubmitting) return;
     
     try {
       setIsSubmitting(true);
-      const m = await ModulesStore.add({ name, category });
+      const m = await addModule({ name, category });
       setName("");
       navigate(`/modules/${m.id}`);
     } catch (error) {
@@ -55,23 +36,22 @@ export default function Modules() {
     } finally {
       setIsSubmitting(false);
     }
-  }
+  }, [name, category, isSubmitting, addModule, navigate]);
 
   function open(id) {
     navigate(`/modules/${id}`);
   }
 
-  async function deleteModule(id, name) {
+  const handleDeleteModule = useCallback(async (id, name) => {
     if (confirm(`Delete "${name}"? This cannot be undone.`)) {
       try {
-        await ModulesStore.remove(id);
-        refresh();
+        await removeModule(id);
       } catch (error) {
         console.error('Error deleting module:', error);
         alert('Error deleting module. Please try again.');
       }
     }
-  }
+  }, [removeModule]);
 
   return (
     <section style={{ padding: "20px 0" }}>
@@ -142,7 +122,7 @@ export default function Modules() {
 
       {/* Lists */}
       <div style={{ display: "grid", gap: "16px", marginTop: "16px" }}>
-        {loading ? (
+        {loading.modules ? (
           <div style={{ 
             padding: "40px", 
             textAlign: "center", 
@@ -190,7 +170,7 @@ export default function Modules() {
                         {m.name}
                       </button>
                       <button
-                        onClick={() => deleteModule(m.id, m.name)}
+                        onClick={() => handleDeleteModule(m.id, m.name)}
                         title="Delete module"
                         style={{
                           padding: "10px 12px",
@@ -215,3 +195,5 @@ export default function Modules() {
     </section>
   );
 }
+
+export default React.memo(Modules);
