@@ -1,16 +1,14 @@
-import React, { useEffect, useReducer, useCallback, useMemo } from 'react';
+import React, { useEffect, useReducer, useCallback, useMemo, useState } from 'react';
 import { ModulesStore } from '../state/modulesStore';
 import { SessionsStore } from '../state/sessionsStore';
 import { DataContext } from './DataContextValue.js';
+import { clearOldCache } from '../utils/clearOldCache.js';
 
 const CACHE_KEYS = {
-  MODULES: 'fmm.cache.modules',
-  SESSIONS: 'fmm.cache.sessions',
   ACTIVE_MODULE: 'fmm.cache.activeModule',
   ACTIVE_SESSION: 'fmm.cache.activeSession'
 };
 
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 const initialState = {
   modules: [],
@@ -20,10 +18,6 @@ const initialState = {
   loading: {
     modules: false,
     sessions: false
-  },
-  cache: {
-    modules: { data: [], timestamp: 0 },
-    sessions: { data: {}, timestamp: 0 }
   }
 };
 
@@ -41,14 +35,7 @@ function dataReducer(state, action) {
     case 'SET_MODULES':
       return {
         ...state,
-        modules: action.modules,
-        cache: {
-          ...state.cache,
-          modules: {
-            data: action.modules,
-            timestamp: Date.now()
-          }
-        }
+        modules: action.modules
       };
 
     case 'SET_SESSIONS':
@@ -57,16 +44,6 @@ function dataReducer(state, action) {
         sessions: {
           ...state.sessions,
           [action.moduleId]: action.sessions
-        },
-        cache: {
-          ...state.cache,
-          sessions: {
-            data: {
-              ...state.cache.sessions.data,
-              [action.moduleId]: action.sessions
-            },
-            timestamp: Date.now()
-          }
         }
       };
 
@@ -88,14 +65,7 @@ function dataReducer(state, action) {
       );
       return {
         ...state,
-        modules: updatedModules,
-        cache: {
-          ...state.cache,
-          modules: {
-            data: updatedModules,
-            timestamp: Date.now()
-          }
-        }
+        modules: updatedModules
       };
     }
 
@@ -103,14 +73,7 @@ function dataReducer(state, action) {
       const newModules = [...state.modules, action.module];
       return {
         ...state,
-        modules: newModules,
-        cache: {
-          ...state.cache,
-          modules: {
-            data: newModules,
-            timestamp: Date.now()
-          }
-        }
+        modules: newModules
       };
     }
 
@@ -120,18 +83,7 @@ function dataReducer(state, action) {
       return {
         ...state,
         modules: filteredModules,
-        sessions: remainingSessions,
-        cache: {
-          ...state.cache,
-          modules: {
-            data: filteredModules,
-            timestamp: Date.now()
-          },
-          sessions: {
-            data: remainingSessions,
-            timestamp: Date.now()
-          }
-        }
+        sessions: remainingSessions
       };
     }
 
@@ -145,16 +97,6 @@ function dataReducer(state, action) {
         sessions: {
           ...state.sessions,
           [moduleId]: updatedSessions
-        },
-        cache: {
-          ...state.cache,
-          sessions: {
-            data: {
-              ...state.cache.sessions.data,
-              [moduleId]: updatedSessions
-            },
-            timestamp: Date.now()
-          }
         }
       };
     }
@@ -167,16 +109,6 @@ function dataReducer(state, action) {
         sessions: {
           ...state.sessions,
           [addModuleId]: addedSessions
-        },
-        cache: {
-          ...state.cache,
-          sessions: {
-            data: {
-              ...state.cache.sessions.data,
-              [addModuleId]: addedSessions
-            },
-            timestamp: Date.now()
-          }
         }
       };
     }
@@ -189,16 +121,6 @@ function dataReducer(state, action) {
         sessions: {
           ...state.sessions,
           [removeModuleId]: removedSessionList
-        },
-        cache: {
-          ...state.cache,
-          sessions: {
-            data: {
-              ...state.cache.sessions.data,
-              [removeModuleId]: removedSessionList
-            },
-            timestamp: Date.now()
-          }
         }
       };
     }
@@ -206,14 +128,8 @@ function dataReducer(state, action) {
     case 'HYDRATE_FROM_CACHE':
       return {
         ...state,
-        modules: action.modules || [],
-        sessions: action.sessions || {},
         activeModuleId: action.activeModuleId || '',
-        activeSessionId: action.activeSessionId || '',
-        cache: {
-          modules: { data: action.modules || [], timestamp: Date.now() },
-          sessions: { data: action.sessions || {}, timestamp: Date.now() }
-        }
+        activeSessionId: action.activeSessionId || ''
       };
 
     default:
@@ -224,50 +140,71 @@ function dataReducer(state, action) {
 
 function loadFromCache() {
   try {
-    const modules = JSON.parse(localStorage.getItem(CACHE_KEYS.MODULES) || '[]');
-    const sessions = JSON.parse(localStorage.getItem(CACHE_KEYS.SESSIONS) || '{}');
     const activeModuleId = localStorage.getItem(CACHE_KEYS.ACTIVE_MODULE) || '';
     const activeSessionId = localStorage.getItem(CACHE_KEYS.ACTIVE_SESSION) || '';
     
-    return { modules, sessions, activeModuleId, activeSessionId };
+    return { activeModuleId, activeSessionId };
   } catch (error) {
     console.error('Error loading from cache:', error);
-    return { modules: [], sessions: {}, activeModuleId: '', activeSessionId: '' };
+    return { activeModuleId: '', activeSessionId: '' };
   }
 }
 
-function saveToCache(modules, sessions, activeModuleId, activeSessionId) {
+function saveToCache(activeModuleId, activeSessionId) {
   try {
-    localStorage.setItem(CACHE_KEYS.MODULES, JSON.stringify(modules));
-    localStorage.setItem(CACHE_KEYS.SESSIONS, JSON.stringify(sessions));
-    localStorage.setItem(CACHE_KEYS.ACTIVE_MODULE, activeModuleId);
-    localStorage.setItem(CACHE_KEYS.ACTIVE_SESSION, activeSessionId);
+    if (activeModuleId) {
+      localStorage.setItem(CACHE_KEYS.ACTIVE_MODULE, activeModuleId);
+    }
+    if (activeSessionId) {
+      localStorage.setItem(CACHE_KEYS.ACTIVE_SESSION, activeSessionId);
+    }
   } catch (error) {
     console.error('Error saving to cache:', error);
   }
 }
 
-function isCacheValid(timestamp) {
-  return Date.now() - timestamp < CACHE_DURATION;
-}
 
 export function DataProvider({ children }) {
   const [state, dispatch] = useReducer(dataReducer, initialState);
 
-  // Load cached data on mount
+  // Load cached data on mount and clean up old cache
   useEffect(() => {
+    clearOldCache(); // Clean up old large cache entries
     const cached = loadFromCache();
     dispatch({ type: 'HYDRATE_FROM_CACHE', ...cached });
   }, []);
 
-  // Save to cache when state changes
+  // Initialize active module when modules are loaded (only run once per modules change)
+  const [modulesInitialized, setModulesInitialized] = useState(false);
   useEffect(() => {
-    saveToCache(state.modules, state.sessions, state.activeModuleId, state.activeSessionId);
-  }, [state.modules, state.sessions, state.activeModuleId, state.activeSessionId]);
+    if (state.modules.length > 0 && !modulesInitialized) {
+      setModulesInitialized(true);
+      
+      if (!state.activeModuleId) {
+        // If we reach here, it means no active module was restored from cache
+        // Default to first module alphabetically
+        const sortedModules = [...state.modules].sort((a, b) => a.name.localeCompare(b.name));
+        dispatch({ type: 'SET_ACTIVE_MODULE', moduleId: sortedModules[0]?.id || '' });
+      } else {
+        // Validate that the cached active module still exists
+        const moduleExists = state.modules.some(m => m.id === state.activeModuleId);
+        if (!moduleExists) {
+          // If cached module no longer exists, fall back to first alphabetically
+          const sortedModules = [...state.modules].sort((a, b) => a.name.localeCompare(b.name));
+          dispatch({ type: 'SET_ACTIVE_MODULE', moduleId: sortedModules[0]?.id || '' });
+        }
+      }
+    }
+  }, [state.modules, state.activeModuleId, modulesInitialized]);
 
-  // Load modules with cache check
+  // Save active selections to localStorage when they change
+  useEffect(() => {
+    saveToCache(state.activeModuleId, state.activeSessionId);
+  }, [state.activeModuleId, state.activeSessionId]);
+
+  // Load modules - always fresh from database, cache only selections
   const loadModules = useCallback(async (force = false) => {
-    if (!force && state.modules.length > 0 && isCacheValid(state.cache.modules.timestamp)) {
+    if (!force && state.modules.length > 0) {
       return state.modules;
     }
 
@@ -282,14 +219,14 @@ export function DataProvider({ children }) {
     } finally {
       dispatch({ type: 'SET_LOADING', key: 'modules', value: false });
     }
-  }, [state.modules, state.cache.modules.timestamp]);
+  }, [state.modules]);
 
-  // Load sessions for a module with cache check
+  // Load sessions for a module - keep in memory only
   const loadSessions = useCallback(async (moduleId, force = false) => {
     if (!moduleId) return [];
 
     const cached = state.sessions[moduleId];
-    if (!force && cached && isCacheValid(state.cache.sessions.timestamp)) {
+    if (!force && cached) {
       return cached;
     }
 
@@ -304,7 +241,7 @@ export function DataProvider({ children }) {
     } finally {
       dispatch({ type: 'SET_LOADING', key: 'sessions', value: false });
     }
-  }, [state.sessions, state.cache.sessions.timestamp]);
+  }, [state.sessions]);
 
   // Module operations with optimistic updates
   const addModule = useCallback(async (moduleData) => {
