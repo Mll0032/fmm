@@ -268,6 +268,19 @@ export function DataProvider({ children }) {
     }
   }, []);
 
+  const renameModule = useCallback(async (id, newName) => {
+    try {
+      const module = await ModulesStore.rename(id, newName);
+      if (module) {
+        dispatch({ type: 'UPDATE_MODULE', module });
+      }
+      return module;
+    } catch (error) {
+      console.error('Error renaming module:', error);
+      throw error;
+    }
+  }, []);
+
   const removeModule = useCallback(async (moduleId) => {
     try {
       await ModulesStore.remove(moduleId);
@@ -378,6 +391,7 @@ export function DataProvider({ children }) {
     loadSessions,
     addModule,
     updateModule,
+    renameModule,
     removeModule,
     addSession,
     updateSession,
