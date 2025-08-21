@@ -12,7 +12,7 @@ import {
 import { snapCenterToCursor } from "@dnd-kit/modifiers";
 import { GRID_SIZE, CARD_WIDTH, CARD_HEIGHT } from "./constants";
 
-function DraggableItem({ id, children, position, disabled = false }) {
+function DraggableItem({ id, children, position, disabled = false, isUpdating = false }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id,
     disabled,
@@ -26,9 +26,9 @@ function DraggableItem({ id, children, position, disabled = false }) {
     width: CARD_WIDTH,
     minHeight: CARD_HEIGHT,
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
-    opacity: isDragging ? 0.8 : 1,
+    opacity: isDragging ? 0.8 : isUpdating ? 0.6 : 1,
     zIndex: isDragging ? 1000 : 1,
-    transition: isDragging ? 'none' : 'transform 0.2s ease'
+    transition: isUpdating ? 'opacity 0.2s ease' : 'none'
   };
 
   const dragProps = disabled ? {} : { ...attributes, ...listeners };
@@ -79,6 +79,7 @@ export default function DraggableGrid({
 }) {
   // Calculate dynamic container size based on item positions
   const [containerSize, setContainerSize] = useState({ width: 0, height: 600 });
+  const [updatingItems, setUpdatingItems] = useState(new Set());
 
   // Extract positions from items
   const positions = React.useMemo(() => {
@@ -132,7 +133,7 @@ export default function DraggableGrid({
     setContainerSize(newSize);
   }, [positions, calculateContainerSize]);
 
-  const handleDragEnd = useCallback((event) => {
+  const handleDragEnd = useCallback(async (event) => {
     if (disabled || !onItemsChange) return;
     
     const { active, delta } = event;
@@ -145,14 +146,27 @@ export default function DraggableGrid({
       y: Math.max(0, snapToGrid(currentPosition.y + delta.y))
     };
 
-    // Update the item with the new position
+    // Immediately update local state to show item in new position with transparency
     const updatedItems = items.map(item => 
       item.id === active.id 
         ? { ...item, position: newPosition }
         : item
     );
     
-    onItemsChange(updatedItems);
+    // Mark item as updating (will show with reduced opacity)
+    setUpdatingItems(prev => new Set([...prev, active.id]));
+    
+    try {
+      // Call the async update function
+      await onItemsChange(updatedItems);
+    } finally {
+      // Remove updating state when save completes (success or failure)
+      setUpdatingItems(prev => {
+        const next = new Set(prev);
+        next.delete(active.id);
+        return next;
+      });
+    }
   }, [positions, snapToGrid, disabled, onItemsChange, items]);
 
   const handleDragStart = useCallback(() => {
@@ -233,6 +247,7 @@ export default function DraggableGrid({
             id={item.id}
             position={item.position || { x: 0, y: 0 }}
             disabled={disabled}
+            isUpdating={updatingItems.has(item.id)}
           >
             {renderItem(item)}
           </DraggableItem>
