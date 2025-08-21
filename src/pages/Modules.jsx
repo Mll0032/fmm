@@ -2,6 +2,23 @@ import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useData } from "../hooks/useData.js";
 
+// Hover-enabled button component
+function HoverButton({ children, onClick, style, hoverStyle, ...props }) {
+  const [isHovered, setIsHovered] = useState(false);
+  
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={isHovered ? hoverStyle : style}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
 function Modules() {
   const navigate = useNavigate();
   const { modules, loading, loadModules, addModule, removeModule } = useData();
@@ -102,7 +119,7 @@ function Modules() {
           <option value="one-shot">One‑Shot</option>
           <option value="campaign">Campaign</option>
         </select>
-        <button
+        <HoverButton
           type="submit"
           disabled={isSubmitting || !name.trim()}
           style={{
@@ -113,11 +130,23 @@ function Modules() {
             borderRadius: "10px",
             cursor: isSubmitting || !name.trim() ? "not-allowed" : "pointer",
             fontWeight: 700,
-            opacity: isSubmitting || !name.trim() ? 0.6 : 1
+            opacity: isSubmitting || !name.trim() ? 0.6 : 1,
+            transition: "background 0.2s ease"
+          }}
+          hoverStyle={{
+            padding: "10px 14px",
+            background: "linear-gradient(270deg, var(--brand), var(--brand-2))",
+            color: "#0b0d12",
+            border: 0,
+            borderRadius: "10px",
+            cursor: isSubmitting || !name.trim() ? "not-allowed" : "pointer",
+            fontWeight: 700,
+            opacity: isSubmitting || !name.trim() ? 0.6 : 1,
+            transition: "background 0.2s ease"
           }}
         >
           {isSubmitting ? "Adding..." : "Add"}
-        </button>
+        </HoverButton>
       </form>
 
       {/* Lists */}
@@ -152,7 +181,7 @@ function Modules() {
                         alignItems: "center"
                       }}
                     >
-                      <button
+                      <HoverButton
                         onClick={() => open(m.id)}
                         title="Open module editor"
                         style={{
@@ -164,11 +193,24 @@ function Modules() {
                           borderRadius: "10px",
                           border: "1px solid color-mix(in oklab, var(--brand) 30%, transparent)",
                           cursor: "pointer",
-                          fontWeight: 600
+                          fontWeight: 600,
+                          transition: "background 0.2s ease"
+                        }}
+                        hoverStyle={{
+                          flex: 1,
+                          textAlign: "left",
+                          padding: "10px 12px",
+                          background: "linear-gradient(270deg, var(--brand), var(--brand-2))",
+                          color: "#0b0d12",
+                          borderRadius: "10px",
+                          border: "1px solid color-mix(in oklab, var(--brand) 30%, transparent)",
+                          cursor: "pointer",
+                          fontWeight: 600,
+                          transition: "background 0.2s ease"
                         }}
                       >
                         {m.name}
-                      </button>
+                      </HoverButton>
                       <button
                         onClick={() => handleDeleteModule(m.id, m.name)}
                         title="Delete module"
