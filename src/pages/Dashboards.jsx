@@ -120,8 +120,19 @@ function Dashboard() {
     return [...modules].sort((a, b) => a.name.localeCompare(b.name));
   }, [modules]);
   
-  const items = activeSession?.items || [];
+  // Local state for optimistic updates
+  const [localItems, setLocalItems] = useState([]);
+  const [isUpdating, setIsUpdating] = useState(false);
+  
+  const items = localItems.length > 0 ? localItems : (activeSession?.items || []);
   const locked = !!activeSession?.locked;
+  
+  // Sync local items with session data when session changes
+  useEffect(() => {
+    if (activeSession?.items && !isUpdating) {
+      setLocalItems(activeSession.items);
+    }
+  }, [activeSession?.items, isUpdating]);
 
 
 
@@ -225,13 +236,21 @@ function Dashboard() {
 
   // --- Items ops ---
   const setItems = useCallback(async (next) => {
+    // Immediately update local state for optimistic UI
+    setLocalItems(next);
+    setIsUpdating(true);
+    
     try {
       await updateSession(activeSessionId, { items: next });
     } catch (error) {
       console.error('Error updating session items:', error);
       alert('Error updating dashboard. Please try again.');
+      // Revert on error
+      setLocalItems(activeSession?.items || []);
+    } finally {
+      setIsUpdating(false);
     }
-  }, [activeSessionId, updateSession]);
+  }, [activeSessionId, updateSession, activeSession?.items]);
 
   function addSection(key) {
     if (!selectedModule || locked) return;
@@ -251,16 +270,14 @@ function Dashboard() {
       sectionId = null;
     }
     
-    setItems([
-      ...items,
-      {
-        id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
-        moduleId: activeModuleId,
-        type,
-        sectionId,
-        position: null // Will be assigned by DraggableGrid
-      }
-    ]);
+    const newItem = {
+      id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+      moduleId: activeModuleId,
+      type,
+      sectionId,
+      position: null // Will be assigned by DraggableGrid
+    };
+    setItems([...items, newItem]);
   }
   function clearAll() {
     if (locked) return;
