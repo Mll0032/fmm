@@ -4,7 +4,7 @@ export default function About() {
   return (
     <section style={pageStyle}>
       <div style={containerStyle}>
-        <h2 style={mainTitleStyle}>About Fizzrix Module Manager</h2>
+        <h2 style={mainTitleStyle}>About Fizzrix’s Massive Modulatorium</h2>
         
         {/* Developer Section */}
         <div style={sectionStyle}>
