@@ -127,6 +127,11 @@ function Dashboard() {
   const items = localItems.length > 0 ? localItems : (activeSession?.items || []);
   const locked = !!activeSession?.locked;
   
+  // Clear local items when module changes
+  useEffect(() => {
+    setLocalItems([]);
+  }, [activeModuleId]);
+
   // Sync local items with session data when session changes
   useEffect(() => {
     if (activeSession?.items && !isUpdating) {
