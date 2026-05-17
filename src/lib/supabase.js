@@ -13,7 +13,7 @@ export async function uploadImage(file, path) {
       .from('module-images')
       .upload(path, file, {
         cacheControl: '3600',
-        upsert: false
+        upsert: true
       })
 
     if (error) throw error

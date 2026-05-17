@@ -168,7 +168,8 @@ function FocusModal({ focus, onClose }) {
   if (!focus) return null;
 
   const isTouch = window.matchMedia("(pointer: coarse)").matches;
-  const hasImage = focus.image?.dataUrl && focus.image?.showOnDashboard;
+  const imageSrc = focus.image?.url || focus.image?.dataUrl || "";
+  const hasImage = imageSrc && focus.image?.showOnDashboard;
   const pct = Math.round(zoom * 100);
 
   return (
@@ -235,7 +236,7 @@ function FocusModal({ focus, onClose }) {
               style={{ overflow: "auto", cursor: isTouch ? "default" : "grab", borderRadius: 12, touchAction: "none" }}
             >
               <img
-                src={focus.image.dataUrl}
+                src={imageSrc}
                 alt={focus.image.alt || focus.title}
                 draggable={false}
                 style={{
@@ -731,6 +732,7 @@ function Dashboard() {
               locked={locked}
               onRemove={() => setItems(items.filter((x) => x.id !== item.id))}
               onFocus={(payload) => setFocus(payload)}
+              onResize={(newSize) => setItems(items.map(x => x.id === item.id ? { ...x, size: newSize } : x))}
             />
           )}
         />

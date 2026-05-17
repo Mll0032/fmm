@@ -53,10 +53,13 @@ function sectionData(module, item) {
   }
 }
 
+const SIZE_LABELS = { 1: "S", 2: "M", 3: "L", 4: "XL" };
+
 function DashboardCard({
   item,
   onRemove,
   onFocus,
+  onResize,
   locked = false,
 }) {
   const { modules } = useData();
@@ -77,13 +80,33 @@ function DashboardCard({
   }
 
   const s = sectionData(module, item);
-  const showImage = s.image?.dataUrl && s.image?.showOnDashboard;
+  const imageSrc = s.image?.url || s.image?.dataUrl || "";
+  const showImage = imageSrc && s.image?.showOnDashboard;
 
   return (
     <article style={card}>
       <header style={head}>
         <h4 style={{ margin: 0, fontSize: 16 }}>{s.title}</h4>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+          {!locked && onResize && (
+            <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <button
+                onClick={() => onResize(Math.max(1, (item.size || 1) - 1))}
+                disabled={(item.size || 1) <= 1}
+                title="Shrink card"
+                style={resizeBtn((item.size || 1) <= 1)}
+              >−</button>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", minWidth: 20, textAlign: "center" }}>
+                {SIZE_LABELS[item.size || 1]}
+              </span>
+              <button
+                onClick={() => onResize(Math.min(4, (item.size || 1) + 1))}
+                disabled={(item.size || 1) >= 4}
+                title="Grow card"
+                style={resizeBtn((item.size || 1) >= 4)}
+              >+</button>
+            </div>
+          )}
           <HoverButton onClick={() => onFocus?.(s)} title="Focus" style={btn()} hoverStyle={btnHover()}>
             Focus
           </HoverButton>
@@ -114,7 +137,7 @@ function DashboardCard({
         </div>
       </header>
 
-      {showImage && <img src={s.image.dataUrl} alt={s.image.alt || s.title} style={img} />}
+      {showImage && <img src={imageSrc} alt={s.image.alt || s.title} style={img} />}
 
       {s.text && <div style={body}>{s.text}</div>}
     </article>
@@ -151,6 +174,17 @@ const body = {
   maxHeight: 240,
   overflow: "auto",
 };
+
+function resizeBtn(disabled) {
+  return {
+    width: 28, height: 28, minWidth: 28,
+    display: "inline-flex", alignItems: "center", justifyContent: "center",
+    padding: 0, borderRadius: 6, border: "1px solid color-mix(in oklab, var(--text) 15%, transparent)",
+    background: "var(--surface)", color: disabled ? "var(--muted)" : "var(--text)",
+    cursor: disabled ? "not-allowed" : "pointer", fontWeight: 700, fontSize: 14,
+    opacity: disabled ? 0.4 : 1,
+  };
+}
 
 function btn() {
   return {

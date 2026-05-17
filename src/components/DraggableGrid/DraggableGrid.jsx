@@ -11,9 +11,9 @@ import {
   useDroppable
 } from "@dnd-kit/core";
 import { snapCenterToCursor } from "@dnd-kit/modifiers";
-import { GRID_SIZE, CARD_WIDTH, CARD_HEIGHT } from "./constants";
+import { GRID_SIZE, CARD_WIDTH, CARD_HEIGHT, getCardWidth } from "./constants";
 
-function DraggableItem({ id, children, position, disabled = false, isUpdating = false }) {
+function DraggableItem({ id, children, position, size = 1, disabled = false, isUpdating = false }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id,
     disabled,
@@ -24,7 +24,7 @@ function DraggableItem({ id, children, position, disabled = false, isUpdating = 
     position: 'absolute',
     left: position.x,
     top: position.y,
-    width: CARD_WIDTH,
+    width: getCardWidth(size),
     minHeight: CARD_HEIGHT,
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
     opacity: isDragging ? 0.8 : isUpdating ? 0.6 : 1,
@@ -151,8 +151,9 @@ export default function DraggableGrid({
     const currentPosition = positions[active.id] || { x: 0, y: 0 };
 
     const containerWidth = containerRef.current?.offsetWidth ?? 800;
-    // Use Math.floor so the card's edge never rounds past the grid boundary
-    const maxX = Math.floor((containerWidth - CARD_WIDTH) / GRID_SIZE) * GRID_SIZE;
+    const draggedItem = items.find(i => i.id === active.id);
+    const cardWidth = getCardWidth(draggedItem?.size || 1);
+    const maxX = Math.floor((containerWidth - cardWidth) / GRID_SIZE) * GRID_SIZE;
     const maxY = Math.floor((containerSize.height - CARD_HEIGHT) / GRID_SIZE) * GRID_SIZE;
 
     const newPosition = {
@@ -265,6 +266,7 @@ export default function DraggableGrid({
             key={item.id}
             id={item.id}
             position={item.position || { x: 0, y: 0 }}
+            size={item.size || 1}
             disabled={disabled}
             isUpdating={updatingItems.has(item.id)}
           >

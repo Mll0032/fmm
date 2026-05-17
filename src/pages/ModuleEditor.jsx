@@ -636,6 +636,7 @@ export default function ModuleEditor() {
               label="Map Image (JPG)"
               value={data.mapImage}
               onChange={(img) => { setData(o => ({ ...o, mapImage: img })); markDirty(); }}
+              storagePath={`modules/${moduleData.id}/map`}
             />
           </div>
 
@@ -661,6 +662,7 @@ export default function ModuleEditor() {
               label="Introduction Image (JPG)"
               value={data.introImage}
               onChange={(img) => { setData(o => ({ ...o, introImage: img })); markDirty(); }}
+              storagePath={`modules/${moduleData.id}/intro`}
             />
           </div>
 
@@ -686,6 +688,7 @@ export default function ModuleEditor() {
               label="Overview Image (JPG)"
               value={data.overviewImage}
               onChange={(img) => { setData(o => ({ ...o, overviewImage: img })); markDirty(); }}
+              storagePath={`modules/${moduleData.id}/overview`}
             />
           </div>
         </div>
@@ -771,6 +774,7 @@ export default function ModuleEditor() {
                     label="Episode Image (JPG)"
                     value={ep.image || { dataUrl: "", alt: "", showOnDashboard: false }}
                     onChange={(img) => updateEpisode(ep.id, { image: img })}
+                    storagePath={`modules/${moduleData.id}/episode-${ep.id}`}
                   />
                   <div style={{ display: "flex", justifyContent: "flex-end" }}>
                     <button
@@ -851,6 +855,7 @@ export default function ModuleEditor() {
                       label="Monster Image (JPG)"
                       value={monster.image || { dataUrl: "", alt: "", showOnDashboard: false }}
                       onChange={(img) => updateMonster(monster.id, { image: img })}
+                      storagePath={`modules/${moduleData.id}/monster-${monster.id}`}
                     />
                     <div style={{ display: "flex", justifyContent: "flex-end" }}>
                       <button
@@ -957,6 +962,7 @@ export default function ModuleEditor() {
                       label="Magic Item Image (JPG)"
                       value={item.image || { dataUrl: "", alt: "", showOnDashboard: false }}
                       onChange={(img) => updateMagicItem(item.id, { image: img })}
+                      storagePath={`modules/${moduleData.id}/magicitem-${item.id}`}
                     />
                     <div style={{ display: "flex", justifyContent: "flex-end" }}>
                       <button

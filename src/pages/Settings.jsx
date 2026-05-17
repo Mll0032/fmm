@@ -47,21 +47,27 @@ export default function Settings() {
   }
 
   // ---------- Export ----------
-  function exportJSON() {
-    const payload = {
-      version: 1,
-      exportedAt: new Date().toISOString(),
-      settings: SettingsStore.get(),
-      modules: ModulesStore.list()
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `fizzrix-backup-${stamp}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-    setToast({ show: true, msg: "Exported backup" });
+  async function exportJSON() {
+    try {
+      const modules = await ModulesStore.list();
+      const payload = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        settings: SettingsStore.get(),
+        modules
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `fizzrix-backup-${stamp}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      setToast({ show: true, msg: "Exported backup" });
+    } catch (err) {
+      console.error(err);
+      alert("Could not export backup.");
+    }
   }
 
   // ---------- Import ----------
@@ -72,27 +78,30 @@ export default function Settings() {
       const text = await file.text();
       const data = JSON.parse(text);
 
-      // Basic validation
       if (!data || typeof data !== "object" || !Array.isArray(data.modules) || !data.settings) {
         alert("Invalid backup file.");
         return;
       }
 
       if (importMode === "replace") {
-        // Replace everything
-        ModulesStore.replaceAll(data.modules);
+        await ModulesStore.clearAll();
+        for (const m of data.modules) {
+          await ModulesStore.importModule({ name: m.name, category: m.category, data: m.data });
+        }
         SettingsStore.setAll(data.settings);
       } else {
-        // Merge: settings shallow-merge, modules by id (skip duplicates)
-        const currentMods = ModulesStore.list();
-        const currentIds = new Set(currentMods.map(m => m.id));
-        const mergedMods = [...currentMods, ...data.modules.filter(m => m && !currentIds.has(m.id))];
-        ModulesStore.replaceAll(mergedMods);
+        // Merge: add only modules not already present (matched by name)
+        const currentMods = await ModulesStore.list();
+        const currentNames = new Set(currentMods.map(m => m.name));
+        for (const m of data.modules) {
+          if (m && !currentNames.has(m.name)) {
+            await ModulesStore.importModule({ name: m.name, category: m.category, data: m.data });
+          }
+        }
         SettingsStore.setAll({ ...SettingsStore.get(), ...data.settings });
       }
 
       setToast({ show: true, msg: "Imported backup" });
-      // refresh page state
       setSettings(SettingsStore.get());
     } catch (err) {
       console.error(err);

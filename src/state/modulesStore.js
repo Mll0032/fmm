@@ -194,6 +194,19 @@ export const ModulesStore = {
     return await remove(id);
   },
 
+  // Import a module with full existing data (used by backup restore)
+  async importModule({ name, category, data: moduleData }) {
+    return await create({ name, category, data: moduleData });
+  },
+
+  // Delete all modules (used by replace-mode import)
+  async clearAll() {
+    const modules = await read();
+    for (const module of modules) {
+      await remove(module.id);
+    }
+  },
+
   // Migration utility
   async migrateFromLocalStorage() {
     return await migrateFromLocalStorage();
