@@ -1,10 +1,11 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { callAI, getActiveKey, getSelectedProvider, PROVIDERS } from "../../lib/ai.js";
 
 const isTouch = window.matchMedia("(pointer: coarse)").matches;
 
 export default function SessionAssistant({ activeModule, activeSession }) {
   const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -14,14 +15,26 @@ export default function SessionAssistant({ activeModule, activeSession }) {
   const hasKey = !!getActiveKey();
   const providerName = PROVIDERS[getSelectedProvider()]?.name || "AI";
 
+  const historyKey = useMemo(
+    () => `fizzrix.assistant.history.${activeModule?.id || "none"}.${activeSession?.id || "none"}`,
+    [activeModule?.id, activeSession?.id]
+  );
+  const historyKeyRef = useRef(historyKey);
+  useEffect(() => { historyKeyRef.current = historyKey; }, [historyKey]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(historyKey);
+      setMessages(raw ? JSON.parse(raw) : []);
+    } catch {
+      setMessages([]);
+    }
+    setError("");
+  }, [historyKey]);
+
   useEffect(() => {
     if (open) messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, open]);
-
-  useEffect(() => {
-    setMessages([]);
-    setError("");
-  }, [activeModule?.id]);
 
   const systemPrompt = activeModule
     ? `You are a D&D Dungeon Master assistant helping a DM run a live session of "${activeModule.name}"${activeSession ? ` (${activeSession.name})` : ""}. Keep responses concise and immediately actionable — the DM is at the table right now. When asked about player situations or unexpected actions, offer 2–3 specific creative options the DM can use immediately. Use short paragraphs or quick bullet points. No lengthy preamble.`
@@ -31,22 +44,25 @@ export default function SessionAssistant({ activeModule, activeSession }) {
     const text = input.trim();
     if (!text || loading) return;
     if (!getActiveKey()) {
-      setError(`No API key set — add your key in Settings.`);
+      setError("No API key set — add your key in Settings.");
       return;
     }
 
     const userMsg = { role: "user", content: text };
-    const nextMessages = [...messages, userMsg];
-    setMessages(nextMessages);
+    const withUser = [...messages, userMsg];
+    setMessages(withUser);
     setInput("");
     setLoading(true);
     setError("");
 
     try {
-      const reply = await callAI(nextMessages, systemPrompt);
-      setMessages(prev => [...prev, { role: "assistant", content: reply }]);
+      const reply = await callAI(withUser, systemPrompt);
+      const withReply = [...withUser, { role: "assistant", content: reply }];
+      setMessages(withReply);
+      localStorage.setItem(historyKeyRef.current, JSON.stringify(withReply.slice(-100)));
     } catch (err) {
       setError(err.message || "Failed to get a response. Check your API key in Settings.");
+      localStorage.setItem(historyKeyRef.current, JSON.stringify(withUser.slice(-100)));
     } finally {
       setLoading(false);
     }
@@ -59,62 +75,99 @@ export default function SessionAssistant({ activeModule, activeSession }) {
     }
   }
 
+  function clearHistory() {
+    setMessages([]);
+    setError("");
+    localStorage.removeItem(historyKeyRef.current);
+  }
+
+  function closeAll() {
+    setOpen(false);
+    setExpanded(false);
+  }
+
   const canSend = hasKey && !!input.trim() && !loading;
+
+  const panelStyle = expanded
+    ? {
+        position: "fixed",
+        inset: 0,
+        zIndex: 160,
+        background: "var(--bg-elev)",
+        border: "none",
+        borderRadius: 0,
+        boxShadow: "none",
+        display: "grid",
+        gridTemplateRows: "auto 1fr auto",
+        overflow: "hidden"
+      }
+    : {
+        position: "fixed",
+        bottom: 80,
+        right: 16,
+        zIndex: 150,
+        width: "min(420px, calc(100vw - 32px))",
+        height: "min(520px, 60vh)",
+        background: "var(--bg-elev)",
+        border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)",
+        borderRadius: "var(--radius)",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.45)",
+        display: "grid",
+        gridTemplateRows: "auto 1fr auto",
+        overflow: "hidden"
+      };
 
   return (
     <>
-      {/* Floating toggle button */}
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{
-          position: "fixed",
-          bottom: 24,
-          right: 24,
-          zIndex: 150,
-          padding: "10px 18px",
-          borderRadius: 999,
-          background: open
-            ? "var(--bg-elev)"
-            : "linear-gradient(90deg, var(--brand), var(--brand-2))",
-          color: open ? "var(--text)" : "#0b0d12",
-          border: open
-            ? "1px solid color-mix(in oklab, var(--text) 20%, transparent)"
-            : "none",
-          fontWeight: 700,
-          fontSize: 14,
-          cursor: "pointer",
-          boxShadow: "0 4px 20px rgba(0,0,0,0.35)",
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          minHeight: 44,
-          transition: "background 0.2s ease"
-        }}
-        title={open ? "Close DM Assistant" : "Open DM Assistant"}
-      >
-        <span style={{ fontSize: 16 }}>✦</span>
-        {open ? "Close" : "DM Assistant"}
-      </button>
+      {/* Floating toggle button — hidden when expanded (header has close instead) */}
+      {!expanded && (
+        <button
+          onClick={() => setOpen(o => !o)}
+          style={{
+            position: "fixed",
+            bottom: 24,
+            right: 24,
+            zIndex: 150,
+            padding: "10px 18px",
+            borderRadius: 999,
+            background: open
+              ? "var(--bg-elev)"
+              : "linear-gradient(90deg, var(--brand), var(--brand-2))",
+            color: open ? "var(--text)" : "#0b0d12",
+            border: open
+              ? "1px solid color-mix(in oklab, var(--text) 20%, transparent)"
+              : "none",
+            fontWeight: 700,
+            fontSize: 14,
+            cursor: "pointer",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            minHeight: 44,
+            transition: "background 0.2s ease"
+          }}
+          title={open ? "Close DM Assistant" : "Open DM Assistant"}
+        >
+          <span style={{ fontSize: 16 }}>✦</span>
+          {open ? "Close" : "DM Assistant"}
+          {messages.length > 0 && !open && (
+            <span style={{
+              background: "rgba(0,0,0,0.25)",
+              borderRadius: 999,
+              fontSize: 11,
+              padding: "1px 7px",
+              fontWeight: 700
+            }}>
+              {messages.length}
+            </span>
+          )}
+        </button>
+      )}
 
       {/* Chat panel */}
       {open && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: 80,
-            right: 16,
-            zIndex: 150,
-            width: "min(420px, calc(100vw - 32px))",
-            height: "min(520px, 60vh)",
-            background: "var(--bg-elev)",
-            border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)",
-            borderRadius: "var(--radius)",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.45)",
-            display: "grid",
-            gridTemplateRows: "auto 1fr auto",
-            overflow: "hidden"
-          }}
-        >
+        <div style={panelStyle}>
           {/* Header */}
           <header style={{
             padding: "12px 16px",
@@ -122,50 +175,48 @@ export default function SessionAssistant({ activeModule, activeSession }) {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            gap: 8
+            gap: 8,
+            background: "var(--bg-elev)"
           }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
-              <span style={{ fontWeight: 700, fontSize: 15, whiteSpace: "nowrap" }}>✦ DM Assistant</span>
-              {activeModule && (
-                <span style={{
-                  fontSize: 11,
-                  color: "var(--muted)",
-                  background: "var(--surface)",
-                  padding: "2px 8px",
-                  borderRadius: 999,
-                  border: "1px solid color-mix(in oklab, var(--text) 10%, transparent)",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap"
-                }}>
-                  {activeModule.name}
-                </span>
-              )}
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+            <span style={{ fontWeight: 700, fontSize: 15 }}>✦ DM Assistant</span>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ fontSize: 11, color: "var(--muted)" }}>{providerName}</span>
+
+              {/* Expand / Minimize */}
               <button
-                onClick={() => { setMessages([]); setError(""); }}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "var(--muted)",
-                  cursor: "pointer",
-                  fontSize: 12,
-                  padding: "4px 8px",
-                  borderRadius: 6
-                }}
-                title="Clear conversation"
+                onClick={() => setExpanded(e => !e)}
+                title={expanded ? "Minimize" : "Expand to full screen"}
+                style={headerBtn}
+              >
+                {expanded ? "⊟" : "⛶"}
+              </button>
+
+              <button
+                onClick={clearHistory}
+                title="Clear conversation history"
+                style={headerBtn}
               >
                 Clear
               </button>
+
+              {/* Close button — only visible when expanded since the floating button handles it otherwise */}
+              {expanded && (
+                <button
+                  onClick={closeAll}
+                  title="Close"
+                  style={{ ...headerBtn, color: "crimson" }}
+                >
+                  ✕
+                </button>
+              )}
             </div>
           </header>
 
           {/* Messages */}
           <div style={{
             overflow: "auto",
-            padding: "12px",
+            padding: expanded ? "16px max(16px, calc((100% - 800px) / 2))" : "12px",
             display: "flex",
             flexDirection: "column",
             gap: 10
@@ -197,11 +248,11 @@ export default function SessionAssistant({ activeModule, activeSession }) {
                   border: m.role === "user"
                     ? "1px solid color-mix(in oklab, var(--text) 10%, transparent)"
                     : "1px solid color-mix(in oklab, var(--brand) 22%, transparent)",
-                  fontSize: 13,
+                  fontSize: expanded ? 14 : 13,
                   lineHeight: 1.6,
                   whiteSpace: "pre-wrap",
                   alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-                  maxWidth: "92%"
+                  maxWidth: expanded ? "72%" : "92%"
                 }}
               >
                 {m.content}
@@ -233,7 +284,7 @@ export default function SessionAssistant({ activeModule, activeSession }) {
 
           {/* Input */}
           <div style={{
-            padding: "10px 12px",
+            padding: expanded ? "12px max(16px, calc((100% - 800px) / 2))" : "10px 12px",
             borderTop: "1px solid color-mix(in oklab, var(--text) 10%, transparent)",
             display: "flex",
             gap: 8,
@@ -246,7 +297,7 @@ export default function SessionAssistant({ activeModule, activeSession }) {
               onKeyDown={handleKeyDown}
               placeholder={hasKey ? "What's happening at the table?" : "Add API key in Settings first"}
               disabled={!hasKey || loading}
-              rows={2}
+              rows={expanded ? 3 : 2}
               style={{
                 flex: 1,
                 resize: "none",
@@ -287,3 +338,18 @@ export default function SessionAssistant({ activeModule, activeSession }) {
     </>
   );
 }
+
+const headerBtn = {
+  background: "none",
+  border: "none",
+  color: "var(--muted)",
+  cursor: "pointer",
+  fontSize: 14,
+  padding: "4px 8px",
+  borderRadius: 6,
+  minHeight: 32,
+  minWidth: 32,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center"
+};
