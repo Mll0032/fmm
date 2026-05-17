@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import { SettingsStore } from "../state/settingsStore";
 import { ModulesStore } from "../state/modulesStore";
+import {
+  getApiKey, setApiKey,
+  getSelectedProvider, setSelectedProvider,
+  getSelectedModel, setSelectedModel,
+  PROVIDERS, PROVIDER_LIST
+} from "../lib/ai.js";
 import PillToggle from "../components/PillToggle/PillToggle";
 import Toast from "../components/Toast/Toast";
 
@@ -9,6 +15,14 @@ export default function Settings() {
   const [toast, setToast] = useState({ show: false, msg: "" });
   const [importMode, setImportMode] = useState("replace"); // 'replace' | 'merge'
   const fileRef = useRef(null);
+  const [selectedProvider, setSelectedProviderState] = useState(getSelectedProvider());
+  const [selectedModel, setSelectedModelState] = useState(() => {
+    const p = getSelectedProvider();
+    const stored = getSelectedModel(p);
+    return (stored && PROVIDERS[p]?.models.find(m => m.id === stored)) ? stored : (PROVIDERS[p]?.models[0]?.id || "");
+  });
+  const [apiKeyInput, setApiKeyInput] = useState(() => getApiKey(getSelectedProvider()));
+  const [showKey, setShowKey] = useState(false);
 
   useEffect(() => { applyTheme(settings); }, [settings]);
 
@@ -148,6 +162,134 @@ export default function Settings() {
 
       <PillToggle label="Reduced Motion" checked={settings.reducedMotion} onChange={(v) => update({ reducedMotion: v })} />
       <PillToggle label="Compact Mode" checked={settings.compactMode} onChange={(v) => update({ compactMode: v })} />
+
+      {/* AI Assistant */}
+      {(() => {
+        const provider = PROVIDERS[selectedProvider];
+        const hasKey = !!getApiKey(selectedProvider);
+
+        function handleProviderChange(id) {
+          setSelectedProvider(id);
+          setSelectedProviderState(id);
+          const stored = getSelectedModel(id);
+          const p = PROVIDERS[id];
+          const model = (stored && p?.models.find(m => m.id === stored)) ? stored : (p?.models[0]?.id || "");
+          setSelectedModel(id, model);
+          setSelectedModelState(model);
+          setApiKeyInput(getApiKey(id));
+          setShowKey(false);
+        }
+
+        function handleModelChange(modelId) {
+          setSelectedModel(selectedProvider, modelId);
+          setSelectedModelState(modelId);
+        }
+
+        function handleSaveKey() {
+          setApiKey(selectedProvider, apiKeyInput);
+          setToast({ show: true, msg: `API key saved for ${provider.name}` });
+        }
+
+        function handleRemoveKey() {
+          setApiKey(selectedProvider, "");
+          setApiKeyInput("");
+          setToast({ show: true, msg: "API key removed" });
+        }
+
+        return (
+          <div style={{ display: "grid", gap: 12, marginTop: 12, background: "var(--bg-elev)", padding: 12, borderRadius: "var(--radius)", border: "1px solid color-mix(in oklab, var(--text) 10%, transparent)" }}>
+            <h3 style={{ margin: 0 }}>AI Assistant</h3>
+            <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>
+              Powers the DM Assistant panel on the Session Dashboard. API keys are stored only in this browser.
+            </p>
+
+            {/* Provider + Model selects */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+              <div style={{ display: "grid", gap: 6 }}>
+                <label style={{ fontSize: 13, color: "var(--muted)" }}>Provider</label>
+                <select
+                  value={selectedProvider}
+                  onChange={e => handleProviderChange(e.target.value)}
+                  style={{ padding: "8px", background: "var(--surface)", color: "var(--text)", borderRadius: 8, border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)" }}
+                >
+                  {PROVIDER_LIST.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}{p.freeNote ? " ✦" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: "grid", gap: 6 }}>
+                <label style={{ fontSize: 13, color: "var(--muted)" }}>Model</label>
+                <select
+                  value={selectedModel}
+                  onChange={e => handleModelChange(e.target.value)}
+                  style={{ padding: "8px", background: "var(--surface)", color: "var(--text)", borderRadius: 8, border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)" }}
+                >
+                  {provider?.models.map(m => (
+                    <option key={m.id} value={m.id}>{m.label} [{m.badge}]</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Provider info */}
+            <small style={{ color: "var(--muted)", lineHeight: 1.5 }}>
+              {provider?.freeNote && <><strong style={{ color: "var(--brand)" }}>✦ {provider.freeNote}</strong> — </>}
+              Get an API key at <strong>{provider?.keyUrl?.replace("https://", "")}</strong>
+            </small>
+
+            {/* API key input */}
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <input
+                type={showKey ? "text" : "password"}
+                value={apiKeyInput}
+                onChange={e => setApiKeyInput(e.target.value)}
+                placeholder={provider?.keyPlaceholder || "API key..."}
+                style={{
+                  flex: 1,
+                  minWidth: 200,
+                  padding: "8px 10px",
+                  background: "var(--surface)",
+                  color: "var(--text)",
+                  borderRadius: 8,
+                  border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)",
+                  fontFamily: "monospace",
+                  fontSize: 13
+                }}
+              />
+              <button
+                onClick={() => setShowKey(s => !s)}
+                style={{ padding: "8px 12px", borderRadius: 8, background: "var(--surface)", color: "var(--text)", border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)", cursor: "pointer" }}
+              >
+                {showKey ? "Hide" : "Show"}
+              </button>
+            </div>
+
+            {/* Save / Remove */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <button
+                onClick={handleSaveKey}
+                disabled={!apiKeyInput.trim()}
+                style={{ padding: "8px 12px", borderRadius: 8, background: apiKeyInput.trim() ? "linear-gradient(90deg, var(--brand), var(--brand-2))" : "var(--surface)", color: apiKeyInput.trim() ? "#0b0d12" : "var(--muted)", border: 0, fontWeight: 700, cursor: apiKeyInput.trim() ? "pointer" : "not-allowed" }}
+              >
+                Save Key
+              </button>
+              {hasKey && (
+                <button
+                  onClick={handleRemoveKey}
+                  style={{ padding: "8px 12px", borderRadius: 8, background: "transparent", color: "crimson", border: "1px solid color-mix(in oklab, crimson 50%, var(--text) 20%)", cursor: "pointer" }}
+                >
+                  Remove Key
+                </button>
+              )}
+              {hasKey && (
+                <small style={{ color: "var(--muted)" }}>✓ Key saved for {provider?.name}</small>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Data Management */}
       <div style={{ display: "grid", gap: 10, marginTop: 12, background: "var(--bg-elev)", padding: 12, borderRadius: "var(--radius)", border: "1px solid color-mix(in oklab, var(--text) 10%, transparent)" }}>
