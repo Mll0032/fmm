@@ -1,4 +1,4 @@
-import React, { useEffect, useReducer, useCallback, useMemo, useState } from 'react';
+import React, { useEffect, useReducer, useCallback, useMemo, useState, useRef } from 'react';
 import { ModulesStore } from '../state/modulesStore';
 import { SessionsStore } from '../state/sessionsStore';
 import { DataContext } from './DataContextValue.js';
@@ -202,16 +202,19 @@ export function DataProvider({ children }) {
     saveToCache(state.activeModuleId, state.activeSessionId);
   }, [state.activeModuleId, state.activeSessionId]);
 
+  const modulesFetchedRef = useRef(false);
+
   // Load modules - always fresh from database, cache only selections
   const loadModules = useCallback(async (force = false) => {
-    if (!force && state.modules.length > 0) {
-      return state.modules;
+    if (!force && modulesFetchedRef.current) {
+      return;
     }
 
     dispatch({ type: 'SET_LOADING', key: 'modules', value: true });
     try {
       const modules = await ModulesStore.list();
       dispatch({ type: 'SET_MODULES', modules });
+      modulesFetchedRef.current = true;
       return modules;
     } catch (error) {
       console.error('Error loading modules:', error);
@@ -219,13 +222,16 @@ export function DataProvider({ children }) {
     } finally {
       dispatch({ type: 'SET_LOADING', key: 'modules', value: false });
     }
-  }, [state.modules]);
+  }, []);
+
+  const stateRef = useRef(state);
+  useEffect(() => { stateRef.current = state; }, [state]);
 
   // Load sessions for a module - keep in memory only
   const loadSessions = useCallback(async (moduleId, force = false) => {
     if (!moduleId) return [];
 
-    const cached = state.sessions[moduleId];
+    const cached = stateRef.current.sessions[moduleId];
     if (!force && cached) {
       return cached;
     }
@@ -241,7 +247,7 @@ export function DataProvider({ children }) {
     } finally {
       dispatch({ type: 'SET_LOADING', key: 'sessions', value: false });
     }
-  }, [state.sessions]);
+  }, []);
 
   // Module operations with optimistic updates
   const addModule = useCallback(async (moduleData) => {
@@ -352,6 +358,7 @@ export function DataProvider({ children }) {
   // Active selections
   const setActiveModule = useCallback((moduleId) => {
     dispatch({ type: 'SET_ACTIVE_MODULE', moduleId });
+    dispatch({ type: 'SET_ACTIVE_SESSION', sessionId: '' });
   }, []);
 
   const setActiveSession = useCallback((sessionId) => {
