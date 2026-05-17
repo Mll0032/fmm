@@ -27,8 +27,8 @@ export default function SearchableDropdown({
       }
     }
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("pointerdown", handleClickOutside);
+    return () => document.removeEventListener("pointerdown", handleClickOutside);
   }, []);
 
   const handleSelect = (item) => {
@@ -74,11 +74,11 @@ export default function SearchableDropdown({
                     key={item.key}
                     onClick={() => handleSelect(item)}
                     style={itemStyle}
-                    onMouseEnter={(e) => {
+                    onMouseEnter={window.matchMedia("(pointer: coarse)").matches ? undefined : (e) => {
                       e.target.style.background = "var(--brand)";
                       e.target.style.color = "#0b0d12";
                     }}
-                    onMouseLeave={(e) => {
+                    onMouseLeave={window.matchMedia("(pointer: coarse)").matches ? undefined : (e) => {
                       e.target.style.background = "transparent";
                       e.target.style.color = "var(--text)";
                     }}
