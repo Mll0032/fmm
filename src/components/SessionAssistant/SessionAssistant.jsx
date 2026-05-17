@@ -147,10 +147,10 @@ export default function SessionAssistant({ activeModule, activeSession }) {
             minHeight: 44,
             transition: "background 0.2s ease"
           }}
-          title={open ? "Close DM Assistant" : "Open DM Assistant"}
+          title={open ? "Close AI Assistant" : "Open AI Assistant"}
         >
           <span style={{ fontSize: 16 }}>✦</span>
-          {open ? "Close" : "DM Assistant"}
+          {open ? "Close" : "AI"}
           {messages.length > 0 && !open && (
             <span style={{
               background: "rgba(0,0,0,0.25)",
