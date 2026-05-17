@@ -1,8 +1,7 @@
 // src/pages/Dashboard.jsx
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useData } from "../hooks/useData.js";
 import DashboardCard from "../components/DashboardCard/DashboardCard";
-import Modal from "../components/Modal/Modal";
 import PillToggle from "../components/PillToggle/PillToggle";
 import SearchableDropdown from "../components/SearchableDropdown/SearchableDropdown";
 
@@ -74,6 +73,170 @@ function Tooltip({ children, text }) {
     </div>
   );
 }
+
+function FocusModal({ focus, onClose }) {
+  const [zoom, setZoom] = useState(1);
+  const imgContainerRef = useRef(null);
+  const dragRef = useRef(null); // { startX, startY, scrollLeft, scrollTop }
+
+  useEffect(() => { setZoom(1); }, [focus]);
+
+  useEffect(() => {
+    if (!focus) return;
+    const onKey = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [focus, onClose]);
+
+  const handleWheel = useCallback((e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.15 : 0.15;
+    setZoom(z => Math.min(8, Math.max(0.25, parseFloat((z + delta).toFixed(2)))));
+  }, []);
+
+  useEffect(() => {
+    const el = imgContainerRef.current;
+    if (!el) return;
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
+  }, [handleWheel, focus]);
+
+  const onMouseDown = useCallback((e) => {
+    const el = imgContainerRef.current;
+    if (!el) return;
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      scrollLeft: el.scrollLeft,
+      scrollTop: el.scrollTop
+    };
+    el.style.cursor = "grabbing";
+    el.style.userSelect = "none";
+  }, []);
+
+  const onMouseMove = useCallback((e) => {
+    if (!dragRef.current) return;
+    const el = imgContainerRef.current;
+    if (!el) return;
+    const dx = e.clientX - dragRef.current.startX;
+    const dy = e.clientY - dragRef.current.startY;
+    el.scrollLeft = dragRef.current.scrollLeft - dx;
+    el.scrollTop = dragRef.current.scrollTop - dy;
+  }, []);
+
+  const onMouseUp = useCallback(() => {
+    dragRef.current = null;
+    const el = imgContainerRef.current;
+    if (el) {
+      el.style.cursor = "grab";
+      el.style.userSelect = "";
+    }
+  }, []);
+
+  if (!focus) return null;
+
+  const hasImage = focus.image?.dataUrl && focus.image?.showOnDashboard;
+  const pct = Math.round(zoom * 100);
+
+  return (
+    <div
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      style={{
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)",
+        display: "grid", placeItems: "center", zIndex: 200
+      }}
+    >
+      <div style={{
+        width: "min(1300px, 97vw)", height: "93vh",
+        background: "var(--bg-elev)", color: "var(--text)",
+        borderRadius: "var(--radius)",
+        border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)",
+        boxShadow: "var(--shadow)",
+        display: "grid",
+        gridTemplateRows: "auto auto 1fr",
+        overflow: "hidden"
+      }}>
+        {/* Header */}
+        <header style={{
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          gap: 8, padding: "12px 16px",
+          borderBottom: "1px solid color-mix(in oklab, var(--text) 10%, transparent)"
+        }}>
+          <h3 style={{ margin: 0 }}>{focus.title}</h3>
+          <button
+            onClick={onClose}
+            style={{
+              padding: "6px 10px", borderRadius: 8, border: "none",
+              background: "linear-gradient(90deg, var(--brand), var(--brand-2))",
+              color: "#0b0d12", fontWeight: 700, cursor: "pointer"
+            }}
+          >✕</button>
+        </header>
+
+        {/* Zoom controls */}
+        {hasImage && (
+          <div style={{
+            display: "flex", gap: 8, padding: "8px 16px", alignItems: "center",
+            borderBottom: "1px solid color-mix(in oklab, var(--text) 10%, transparent)",
+            background: "var(--surface)"
+          }}>
+            <span style={{ fontSize: 13, color: "var(--muted)", marginRight: 4 }}>Zoom:</span>
+            <button onClick={() => setZoom(z => Math.max(0.25, parseFloat((z - 0.25).toFixed(2))))} style={zoomBtn}>−</button>
+            <span style={{ minWidth: 48, textAlign: "center", fontSize: 13, fontWeight: 600 }}>{pct}%</span>
+            <button onClick={() => setZoom(z => Math.min(8, parseFloat((z + 0.25).toFixed(2))))} style={zoomBtn}>+</button>
+            <button onClick={() => setZoom(1)} style={{ ...zoomBtn, marginLeft: 4 }}>Reset</button>
+            <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: 8 }}>or scroll over image to zoom</span>
+          </div>
+        )}
+
+        {/* Content */}
+        <div style={{ overflow: "auto", padding: 16, display: "grid", gap: 12 }}>
+          {hasImage && (
+            <div
+              ref={imgContainerRef}
+              onMouseDown={onMouseDown}
+              onMouseMove={onMouseMove}
+              onMouseUp={onMouseUp}
+              onMouseLeave={onMouseUp}
+              style={{ overflow: "auto", cursor: "grab", borderRadius: 12 }}
+            >
+              <img
+                src={focus.image.dataUrl}
+                alt={focus.image.alt || focus.title}
+                draggable={false}
+                style={{
+                  width: `${pct}%`,
+                  minWidth: `${pct}%`,
+                  display: "block",
+                  borderRadius: 12,
+                  border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)",
+                  userSelect: "none"
+                }}
+              />
+            </div>
+          )}
+          {focus.text && (
+            <div style={{
+              whiteSpace: "pre-wrap",
+              background: "var(--surface)",
+              borderRadius: 12,
+              border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)",
+              padding: 16,
+              lineHeight: 1.6
+            }}>
+              {focus.text}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const zoomBtn = {
+  padding: "4px 12px", borderRadius: 6, border: "1px solid color-mix(in oklab, var(--text) 15%, transparent)",
+  background: "var(--bg-elev)", color: "var(--text)", cursor: "pointer", fontWeight: 700, fontSize: 16
+};
 
 function Dashboard() {
   const {
@@ -537,34 +700,7 @@ function Dashboard() {
       )}
 
       {/* Focus Mode */}
-      <Modal open={!!focus} title={focus?.title || "Focus"} onClose={() => setFocus(null)}>
-        {focus?.image?.dataUrl && focus?.image?.showOnDashboard && (
-          <img
-            src={focus.image.dataUrl}
-            alt={focus.image.alt || focus.title}
-            style={{
-              maxWidth: "100%",
-              height: "auto",
-              borderRadius: 12,
-              border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)",
-              marginBottom: 12
-            }}
-          />
-        )}
-        {focus?.text && (
-          <div
-            style={{
-              whiteSpace: "pre-wrap",
-              background: "var(--surface)",
-              borderRadius: 12,
-              border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)",
-              padding: 12
-            }}
-          >
-            {focus.text}
-          </div>
-        )}
-      </Modal>
+      <FocusModal focus={focus} onClose={() => setFocus(null)} />
     </section>
   );
 }
