@@ -6,6 +6,7 @@ import PillToggle from "../components/PillToggle/PillToggle";
 import SearchableDropdown from "../components/SearchableDropdown/SearchableDropdown";
 
 import DraggableGrid from "../components/DraggableGrid/DraggableGrid";
+import SessionAssistant from "../components/SessionAssistant/SessionAssistant";
 
 const isTouch = window.matchMedia("(pointer: coarse)").matches;
 
@@ -740,6 +741,9 @@ function Dashboard() {
 
       {/* Focus Mode */}
       <FocusModal focus={focus} onClose={() => setFocus(null)} />
+
+      {/* DM Assistant — floats fixed at bottom-right */}
+      <SessionAssistant activeModule={selectedModule} activeSession={activeSession} />
     </section>
   );
 }
