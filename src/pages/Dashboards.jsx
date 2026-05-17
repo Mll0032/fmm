@@ -256,7 +256,9 @@ function FocusModal({ focus, onClose }) {
               borderRadius: 12,
               border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)",
               padding: 16,
-              lineHeight: 1.6
+              lineHeight: 1.6,
+              userSelect: "text",
+              WebkitUserSelect: "text",
             }}>
               {focus.text}
             </div>
