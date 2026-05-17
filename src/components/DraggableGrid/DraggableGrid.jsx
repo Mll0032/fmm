@@ -29,7 +29,10 @@ function DraggableItem({ id, children, position, disabled = false, isUpdating = 
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
     opacity: isDragging ? 0.8 : isUpdating ? 0.6 : 1,
     zIndex: isDragging ? 1000 : 1,
-    transition: isUpdating ? 'opacity 0.2s ease' : 'none'
+    transition: isUpdating ? 'opacity 0.2s ease' : 'none',
+    userSelect: disabled ? 'auto' : 'none',
+    WebkitUserSelect: disabled ? 'auto' : 'none',
+    touchAction: disabled ? 'auto' : 'none',
   };
 
   const dragProps = disabled ? {} : { ...attributes, ...listeners };
