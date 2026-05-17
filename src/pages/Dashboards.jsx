@@ -7,15 +7,17 @@ import SearchableDropdown from "../components/SearchableDropdown/SearchableDropd
 
 import DraggableGrid from "../components/DraggableGrid/DraggableGrid";
 
+const isTouch = window.matchMedia("(pointer: coarse)").matches;
+
 // Hover-enabled button components
 function HoverButton({ children, onClick, style, hoverStyle, ...props }) {
   const [isHovered, setIsHovered] = useState(false);
-  
+
   return (
     <button
       onClick={onClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={isTouch ? undefined : () => setIsHovered(true)}
+      onMouseLeave={isTouch ? undefined : () => setIsHovered(false)}
       style={isHovered ? hoverStyle : style}
       {...props}
     >
@@ -77,7 +79,10 @@ function Tooltip({ children, text }) {
 function FocusModal({ focus, onClose }) {
   const [zoom, setZoom] = useState(1);
   const imgContainerRef = useRef(null);
-  const dragRef = useRef(null); // { startX, startY, scrollLeft, scrollTop }
+  const dragRef = useRef(null);
+  const pinchRef = useRef(null);
+  const zoomRef = useRef(zoom);
+  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
 
   useEffect(() => { setZoom(1); }, [focus]);
 
@@ -88,20 +93,51 @@ function FocusModal({ focus, onClose }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [focus, onClose]);
 
+  // Mouse wheel zoom
   const handleWheel = useCallback((e) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? -0.15 : 0.15;
     setZoom(z => Math.min(8, Math.max(0.25, parseFloat((z + delta).toFixed(2)))));
   }, []);
 
+  // Pinch-to-zoom (touch)
+  const handleTouchStart = useCallback((e) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      pinchRef.current = { distance: Math.hypot(dx, dy), zoom: zoomRef.current };
+    }
+  }, []);
+
+  const handleTouchMove = useCallback((e) => {
+    if (e.touches.length === 2 && pinchRef.current) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const scale = Math.hypot(dx, dy) / pinchRef.current.distance;
+      setZoom(Math.min(8, Math.max(0.25, parseFloat((pinchRef.current.zoom * scale).toFixed(2)))));
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => { pinchRef.current = null; }, []);
+
   useEffect(() => {
     const el = imgContainerRef.current;
     if (!el) return;
     el.addEventListener("wheel", handleWheel, { passive: false });
-    return () => el.removeEventListener("wheel", handleWheel);
-  }, [handleWheel, focus]);
+    el.addEventListener("touchstart", handleTouchStart, { passive: true });
+    el.addEventListener("touchmove", handleTouchMove, { passive: false });
+    el.addEventListener("touchend", handleTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener("wheel", handleWheel);
+      el.removeEventListener("touchstart", handleTouchStart);
+      el.removeEventListener("touchmove", handleTouchMove);
+      el.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, [handleWheel, handleTouchStart, handleTouchMove, handleTouchEnd, focus]);
 
-  const onMouseDown = useCallback((e) => {
+  // Pointer events for pan — works for mouse and single-finger touch
+  const onPointerDown = useCallback((e) => {
     const el = imgContainerRef.current;
     if (!el) return;
     dragRef.current = {
@@ -110,31 +146,28 @@ function FocusModal({ focus, onClose }) {
       scrollLeft: el.scrollLeft,
       scrollTop: el.scrollTop
     };
+    el.setPointerCapture(e.pointerId);
     el.style.cursor = "grabbing";
     el.style.userSelect = "none";
   }, []);
 
-  const onMouseMove = useCallback((e) => {
+  const onPointerMove = useCallback((e) => {
     if (!dragRef.current) return;
     const el = imgContainerRef.current;
     if (!el) return;
-    const dx = e.clientX - dragRef.current.startX;
-    const dy = e.clientY - dragRef.current.startY;
-    el.scrollLeft = dragRef.current.scrollLeft - dx;
-    el.scrollTop = dragRef.current.scrollTop - dy;
+    el.scrollLeft = dragRef.current.scrollLeft - (e.clientX - dragRef.current.startX);
+    el.scrollTop = dragRef.current.scrollTop - (e.clientY - dragRef.current.startY);
   }, []);
 
-  const onMouseUp = useCallback(() => {
+  const onPointerUp = useCallback((e) => {
     dragRef.current = null;
     const el = imgContainerRef.current;
-    if (el) {
-      el.style.cursor = "grab";
-      el.style.userSelect = "";
-    }
+    if (el) { el.style.cursor = "grab"; el.style.userSelect = ""; }
   }, []);
 
   if (!focus) return null;
 
+  const isTouch = window.matchMedia("(pointer: coarse)").matches;
   const hasImage = focus.image?.dataUrl && focus.image?.showOnDashboard;
   const pct = Math.round(zoom * 100);
 
@@ -185,7 +218,9 @@ function FocusModal({ focus, onClose }) {
             <span style={{ minWidth: 48, textAlign: "center", fontSize: 13, fontWeight: 600 }}>{pct}%</span>
             <button onClick={() => setZoom(z => Math.min(8, parseFloat((z + 0.25).toFixed(2))))} style={zoomBtn}>+</button>
             <button onClick={() => setZoom(1)} style={{ ...zoomBtn, marginLeft: 4 }}>Reset</button>
-            <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: 8 }}>or scroll over image to zoom</span>
+            <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: 8 }}>
+              {isTouch ? "or pinch to zoom · drag to pan" : "or scroll over image to zoom · drag to pan"}
+            </span>
           </div>
         )}
 
@@ -194,11 +229,10 @@ function FocusModal({ focus, onClose }) {
           {hasImage && (
             <div
               ref={imgContainerRef}
-              onMouseDown={onMouseDown}
-              onMouseMove={onMouseMove}
-              onMouseUp={onMouseUp}
-              onMouseLeave={onMouseUp}
-              style={{ overflow: "auto", cursor: "grab", borderRadius: 12 }}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              style={{ overflow: "auto", cursor: isTouch ? "default" : "grab", borderRadius: 12, touchAction: "none" }}
             >
               <img
                 src={focus.image.dataUrl}
@@ -234,8 +268,9 @@ function FocusModal({ focus, onClose }) {
 }
 
 const zoomBtn = {
-  padding: "4px 12px", borderRadius: 6, border: "1px solid color-mix(in oklab, var(--text) 15%, transparent)",
-  background: "var(--bg-elev)", color: "var(--text)", cursor: "pointer", fontWeight: 700, fontSize: 16
+  padding: "0 14px", borderRadius: 6, border: "1px solid color-mix(in oklab, var(--text) 15%, transparent)",
+  background: "var(--bg-elev)", color: "var(--text)", cursor: "pointer", fontWeight: 700, fontSize: 16,
+  minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center"
 };
 
 function Dashboard() {
