@@ -4,6 +4,7 @@ import {
   closestCenter,
   PointerSensor,
   KeyboardSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   useDraggable,
@@ -95,8 +96,12 @@ export default function DraggableGrid({
   const containerRef = React.useRef(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { 
+    useSensor(PointerSensor, {
       activationConstraint: { distance: 8 }
+    }),
+    useSensor(TouchSensor, {
+      // 250ms press-and-hold before drag starts, allows 8px movement during hold
+      activationConstraint: { delay: 250, tolerance: 8 }
     }),
     useSensor(KeyboardSensor)
   );
