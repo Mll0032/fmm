@@ -5,15 +5,16 @@ import { useData } from "../hooks/useData.js";
 import Toast from "../components/Toast/Toast";
 import ImageField from "../components/ImageField/ImageField";
 
-// Hover-enabled button component
+const isTouch = window.matchMedia("(pointer: coarse)").matches;
+
 function HoverButton({ children, onClick, style, hoverStyle, ...props }) {
   const [isHovered, setIsHovered] = useState(false);
-  
+
   return (
     <button
       onClick={onClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={isTouch ? undefined : () => setIsHovered(true)}
+      onMouseLeave={isTouch ? undefined : () => setIsHovered(false)}
       style={isHovered ? hoverStyle : style}
       {...props}
     >
