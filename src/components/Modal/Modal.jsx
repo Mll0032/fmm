@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 
+const isTouch = window.matchMedia("(pointer: coarse)").matches;
+
 export default function Modal({ open, title, children, onClose }) {
   useEffect(() => {
     if (!open) return;
@@ -69,12 +71,12 @@ function btnHover() {
 // Hover-enabled button component
 function HoverButton({ children, onClick, style, hoverStyle, ...props }) {
   const [isHovered, setIsHovered] = useState(false);
-  
+
   return (
     <button
       onClick={onClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={isTouch ? undefined : () => setIsHovered(true)}
+      onMouseLeave={isTouch ? undefined : () => setIsHovered(false)}
       style={isHovered ? hoverStyle : style}
       {...props}
     >
