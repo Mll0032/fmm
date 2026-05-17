@@ -143,15 +143,21 @@ export default function DraggableGrid({
 
   const handleDragEnd = useCallback(async (event) => {
     if (disabled || !onItemsChange) return;
-    
+
     const { active, delta } = event;
-    
+
     if (!delta) return;
 
     const currentPosition = positions[active.id] || { x: 0, y: 0 };
+
+    const containerWidth = containerRef.current?.offsetWidth ?? 800;
+    // Use Math.floor so the card's edge never rounds past the grid boundary
+    const maxX = Math.floor((containerWidth - CARD_WIDTH) / GRID_SIZE) * GRID_SIZE;
+    const maxY = Math.floor((containerSize.height - CARD_HEIGHT) / GRID_SIZE) * GRID_SIZE;
+
     const newPosition = {
-      x: Math.max(0, snapToGrid(currentPosition.x + delta.x)),
-      y: Math.max(0, snapToGrid(currentPosition.y + delta.y))
+      x: Math.min(maxX, Math.max(0, snapToGrid(currentPosition.x + delta.x))),
+      y: Math.min(maxY, Math.max(0, snapToGrid(currentPosition.y + delta.y)))
     };
 
     // Immediately update local state to show item in new position with transparency
@@ -175,7 +181,7 @@ export default function DraggableGrid({
         return next;
       });
     }
-  }, [positions, snapToGrid, disabled, onItemsChange, items]);
+  }, [positions, snapToGrid, disabled, onItemsChange, items, containerSize]);
 
   const handleDragStart = useCallback(() => {
     // Optional: Add any drag start logic here
@@ -247,6 +253,11 @@ export default function DraggableGrid({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       modifiers={modifiers}
+      autoScroll={{
+        threshold: { x: 0.03, y: 0.03 }, // only trigger in last 3% of viewport edge
+        acceleration: 2,                  // scroll speed (default is 10)
+        interval: 5,                      // ms between scroll ticks (default 5)
+      }}
     >
       <DroppableGrid containerRef={containerRef} containerSize={containerSize}>
         {items.map((item) => (
