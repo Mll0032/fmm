@@ -9,7 +9,7 @@
   --ring: 0 0 0 3px rgba(125, 211, 252, 0.35);
   --radius: 12px;
   --shadow: 0 10px 30px rgba(0,0,0,0.35);
-  --maxw: 1200px;
+  --maxw: 1400px;
   --nav-h: 60px;
 }
 
@@ -25,7 +25,7 @@
   --ring: 0 0 0 3px rgba(125, 211, 252, 0.35);
   --radius: 12px;
   --shadow: 0 10px 30px rgba(0,0,0,0.35);
-  --maxw: 1200px;
+  --maxw: 1400px;
   --nav-h: 60px;
   --font-scale: 1;
 }
