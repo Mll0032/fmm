@@ -5,7 +5,7 @@
 /* Mobile: burger + slide-down menu */
 .burger {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 40px; height: 36px; border: 0; background: var(--surface); border-radius: 10px;
+  width: 44px; height: 44px; border: 0; background: var(--surface); border-radius: 10px;
   box-shadow: var(--shadow); cursor: pointer;
 }
 .burgerBar {
@@ -26,7 +26,8 @@
 .open { display: flex; }
 
 .link {
-  display: block; padding: 10px 12px; border-radius: 8px; color: var(--muted);
+  display: block; padding: 12px 12px; min-height: 44px; border-radius: 8px; color: var(--muted);
+  display: flex; align-items: center;
 }
 .link:hover { background: color-mix(in oklab, var(--brand) 12%, transparent); color: var(--text); }
 .active { color: var(--text); outline: var(--ring); }
