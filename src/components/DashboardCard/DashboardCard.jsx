@@ -1,4 +1,6 @@
 import React, { useState, useMemo } from "react";
+
+const isTouch = window.matchMedia("(pointer: coarse)").matches;
 import { useData } from "../../hooks/useData.js";
 
 function sectionData(module, item) {
@@ -86,21 +88,21 @@ function DashboardCard({
             Focus
           </HoverButton>
 
-          <button 
-            onClick={locked ? undefined : onRemove} 
-            title={locked ? "" : "Remove"} 
+          <button
+            onClick={locked ? undefined : onRemove}
+            title={locked ? "" : "Remove"}
             style={{
               padding: "6px 10px",
-              background: locked ? "transparent" : "transparent",
+              background: "transparent",
               color: locked ? "transparent" : "crimson",
               borderRadius: 8,
               border: `1px solid ${locked ? "transparent" : "color-mix(in oklab, var(--text) 12%, transparent)"}`,
               cursor: locked ? "default" : "pointer",
               visibility: locked ? "hidden" : "visible",
-              width: "32px",
-              minWidth: "32px",
-              height: "32px",
-              minHeight: "32px",
+              width: "44px",
+              minWidth: "44px",
+              height: "44px",
+              minHeight: "44px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -179,12 +181,12 @@ function btnHover() {
 // Hover-enabled button component
 const HoverButton = React.memo(function HoverButton({ children, onClick, style, hoverStyle, ...props }) {
   const [isHovered, setIsHovered] = useState(false);
-  
+
   return (
     <button
       onClick={onClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={isTouch ? undefined : () => setIsHovered(true)}
+      onMouseLeave={isTouch ? undefined : () => setIsHovered(false)}
       style={isHovered ? hoverStyle : style}
       {...props}
     >
