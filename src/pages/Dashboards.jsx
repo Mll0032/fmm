@@ -7,6 +7,7 @@ import SearchableDropdown from "../components/SearchableDropdown/SearchableDropd
 
 import DraggableGrid from "../components/DraggableGrid/DraggableGrid";
 import SessionAssistant from "../components/SessionAssistant/SessionAssistant";
+import Soundboard from "../components/Soundboard/Soundboard";
 
 const isTouch = window.matchMedia("(pointer: coarse)").matches;
 
@@ -641,6 +642,9 @@ function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Soundboard */}
+      <Soundboard moduleId={activeModuleId} />
 
       {/* Picker for sections - hidden when locked */}
       {!locked && (
