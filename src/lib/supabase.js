@@ -56,6 +56,51 @@ export async function deleteImage(path) {
   }
 }
 
+// ── Audio Storage ────────────────────────────────────────────────────────────
+
+export async function uploadAudio(file, path) {
+  try {
+    const { error } = await supabase.storage
+      .from('module-audio')
+      .upload(path, file, { cacheControl: '3600', upsert: true })
+    if (error) throw error
+    const { data } = supabase.storage.from('module-audio').getPublicUrl(path)
+    return { success: true, url: data.publicUrl }
+  } catch (error) {
+    console.error('Error uploading audio:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export async function deleteAudioFile(storagePath) {
+  const { error } = await supabase.storage.from('module-audio').remove([storagePath])
+  if (error) console.error('Error deleting audio file:', error)
+}
+
+// ── Soundboard Config ─────────────────────────────────────────────────────────
+
+export async function getSoundboard(moduleId) {
+  const { data, error } = await supabase
+    .from('soundboards')
+    .select('bites')
+    .eq('module_id', moduleId)
+    .single()
+  if (error) return []
+  return data?.bites || []
+}
+
+export async function saveSoundboard(moduleId, bites) {
+  const { error } = await supabase
+    .from('soundboards')
+    .upsert(
+      { module_id: moduleId, bites, updated_at: new Date().toISOString() },
+      { onConflict: 'module_id' }
+    )
+  if (error) console.error('Error saving soundboard:', error)
+}
+
+// ── Image helpers ─────────────────────────────────────────────────────────────
+
 // Helper function to convert base64 dataURL to File object
 export function dataURLtoFile(dataurl, filename) {
   const arr = dataurl.split(',')
