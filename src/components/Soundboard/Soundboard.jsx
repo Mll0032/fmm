@@ -1,21 +1,18 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { saveAudio, loadAudio, deleteAudio } from "../../lib/audioStore.js";
-
-const isTouch = window.matchMedia("(pointer: coarse)").matches;
+import { uploadAudio, getSoundboard, saveSoundboard, deleteAudioFile } from "../../lib/supabase.js";
 
 const cfgKey = (moduleId) => `fizzrix.soundboard.${moduleId || "global"}`;
 
-function loadConfig(moduleId) {
+function loadBgConfig(moduleId) {
   try {
     const raw = localStorage.getItem(cfgKey(moduleId));
-    return raw ? JSON.parse(raw) : { bg: null, bites: [] };
-  } catch {
-    return { bg: null, bites: [] };
-  }
+    return raw ? JSON.parse(raw).bg || null : null;
+  } catch { return null; }
 }
 
-function saveConfig(moduleId, cfg) {
-  try { localStorage.setItem(cfgKey(moduleId), JSON.stringify(cfg)); } catch {}
+function saveBgConfig(moduleId, bg) {
+  try { localStorage.setItem(cfgKey(moduleId), JSON.stringify({ bg })); } catch {}
 }
 
 function makeId() {
@@ -28,37 +25,47 @@ function fmtTime(s) {
 
 export default function Soundboard({ moduleId }) {
   const [open, setOpen] = useState(false);
-  const [config, setConfig] = useState(() => loadConfig(moduleId));
+  const [bg, setBg] = useState(() => loadBgConfig(moduleId));
+  const [bites, setBites] = useState([]);
+  const [loadingBites, setLoadingBites] = useState(false);
 
-  // Background music
   const bgAudioRef = useRef(new Audio());
   const [bgPlaying, setBgPlaying] = useState(false);
-  const [bgVolume, setBgVolume] = useState(config.bg?.volume ?? 0.8);
-  const [bgLoop, setBgLoop] = useState(config.bg?.loop ?? true);
+  const [bgVolume, setBgVolume] = useState(bg?.volume ?? 0.8);
+  const [bgLoop, setBgLoop] = useState(bg?.loop ?? true);
   const [bgLoading, setBgLoading] = useState(false);
 
-  // Active bite instances: { [biteId]: Audio[] } — multiple instances allowed per bite
   const activeBitesRef = useRef({});
   const [biteLoading, setBiteLoading] = useState(false);
 
-  // Recording
   const [recording, setRecording] = useState(false);
   const [recTime, setRecTime] = useState(0);
   const mediaRecRef = useRef(null);
   const chunksRef = useRef([]);
   const recTimerRef = useRef(null);
+  const cancelRecRef = useRef(false);
 
-  // Blob URL cache — created on demand, revoked on unmount
   const blobCacheRef = useRef({});
 
-  // Inline renaming
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState("");
 
-  // ── helpers ──────────────────────────────────────────────────────────────
+  // ── helpers ───────────────────────────────────────────────────────────────
 
-  async function getBlobUrl(audioId) {
+  function revokeBlobs(cache) {
+    Object.values(cache).forEach(url => {
+      if (url && url.startsWith("blob:")) URL.revokeObjectURL(url);
+    });
+  }
+
+  async function getBlobUrl(audioId, bitesSnapshot) {
     if (blobCacheRef.current[audioId]) return blobCacheRef.current[audioId];
+    const bite = (bitesSnapshot || bites).find(b => b.id === audioId);
+    if (bite?.url) {
+      blobCacheRef.current[audioId] = bite.url;
+      return bite.url;
+    }
+    // Legacy IndexedDB fallback
     const blob = await loadAudio(audioId);
     if (!blob) return null;
     const url = URL.createObjectURL(blob);
@@ -66,75 +73,85 @@ export default function Soundboard({ moduleId }) {
     return url;
   }
 
-  function updateConfig(updates) {
-    setConfig(prev => {
-      const next = { ...prev, ...updates };
-      saveConfig(moduleId, next);
-      return next;
-    });
+  async function persistBites(newBites) {
+    setBites(newBites);
+    if (moduleId) await saveSoundboard(moduleId, newBites);
   }
 
-  // ── load bg audio when module or bg audioId changes ──────────────────────
+  // ── load bg when module or bg audioId changes ─────────────────────────────
 
   useEffect(() => {
     const audio = bgAudioRef.current;
     setBgPlaying(false);
     audio.pause();
     audio.src = "";
-
-    if (!config.bg?.audioId) return;
+    if (!bg?.audioId) return;
 
     setBgLoading(true);
-    getBlobUrl(config.bg.audioId).then(url => {
+    getBlobUrl(bg.audioId).then(url => {
       if (url) {
         audio.src = url;
-        audio.volume = config.bg.volume ?? 0.8;
-        audio.loop = config.bg.loop ?? true;
+        audio.volume = bg.volume ?? 0.8;
+        audio.loop = bg.loop ?? true;
       }
       setBgLoading(false);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config.bg?.audioId, moduleId]);
+  }, [bg?.audioId, moduleId]);
 
-  // ── reset on module change ────────────────────────────────────────────────
+  // ── reset + load bites from Supabase on module change ────────────────────
 
   useEffect(() => {
-    const audio = bgAudioRef.current;
-    audio.pause();
-    audio.src = "";
+    bgAudioRef.current.pause();
+    bgAudioRef.current.src = "";
     setBgPlaying(false);
     stopAllBites();
-
-    // Revoke cached blob URLs from previous module
-    Object.values(blobCacheRef.current).forEach(URL.revokeObjectURL);
+    revokeBlobs(blobCacheRef.current);
     blobCacheRef.current = {};
 
-    const cfg = loadConfig(moduleId);
-    setConfig(cfg);
-    setBgVolume(cfg.bg?.volume ?? 0.8);
-    setBgLoop(cfg.bg?.loop ?? true);
+    const newBg = loadBgConfig(moduleId);
+    setBg(newBg);
+    setBgVolume(newBg?.volume ?? 0.8);
+    setBgLoop(newBg?.loop ?? true);
+    setBites([]);
+
+    if (!moduleId) return;
+
+    setLoadingBites(true);
+    getSoundboard(moduleId)
+      .then(loaded => setBites(loaded))
+      .catch(() => {})
+      .finally(() => setLoadingBites(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [moduleId]);
 
-  // ── Ctrl+Alt+R hotkey to toggle recording ────────────────────────────────
+  // ── preload cache: Supabase URLs are synchronous; legacy needs IndexedDB ──
+
+  useEffect(() => {
+    bites.forEach(bite => {
+      if (bite.url) {
+        blobCacheRef.current[bite.id] = bite.url;
+      } else if (!blobCacheRef.current[bite.id]) {
+        getBlobUrl(bite.id, bites);
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bites]);
+
+  // ── Ctrl+Alt+Z hotkey ─────────────────────────────────────────────────────
 
   useEffect(() => {
     function onKeyDown(e) {
       if (e.ctrlKey && e.altKey && e.code === "KeyZ") {
         e.preventDefault();
-        if (recording) {
-          stopRecording();
-        } else {
-          setOpen(true);
-          startRecording();
-        }
+        if (recording) { stopRecording(); } else { setOpen(true); startRecording(); }
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [recording]);
 
-  // ── iOS audio unlock — first touch on the page unlocks audio context ─────
+  // ── iOS audio unlock ──────────────────────────────────────────────────────
 
   useEffect(() => {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -146,9 +163,7 @@ export default function Soundboard({ moduleId }) {
       const ctx = new AudioCtx();
       const buf = ctx.createBuffer(1, 1, 22050);
       const src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.connect(ctx.destination);
-      src.start(0);
+      src.buffer = buf; src.connect(ctx.destination); src.start(0);
       ctx.resume().then(() => ctx.close());
     }
     window.addEventListener("touchstart", unlock, { once: true, passive: true });
@@ -162,11 +177,11 @@ export default function Soundboard({ moduleId }) {
       bgAudioRef.current.pause();
       stopAllBites();
       clearInterval(recTimerRef.current);
-      Object.values(blobCacheRef.current).forEach(URL.revokeObjectURL);
+      revokeBlobs(blobCacheRef.current);
     };
   }, []);
 
-  // ── background music ─────────────────────────────────────────────────────
+  // ── background music ──────────────────────────────────────────────────────
 
   async function handleBgFile(e) {
     const file = e.target.files?.[0];
@@ -176,11 +191,8 @@ export default function Soundboard({ moduleId }) {
     const audioId = `bg-${moduleId || "global"}`;
     await saveAudio(audioId, file);
 
-    // Revoke old cached URL for this id
-    if (blobCacheRef.current[audioId]) {
+    if (blobCacheRef.current[audioId]?.startsWith("blob:"))
       URL.revokeObjectURL(blobCacheRef.current[audioId]);
-      delete blobCacheRef.current[audioId];
-    }
 
     const url = URL.createObjectURL(file);
     blobCacheRef.current[audioId] = url;
@@ -191,7 +203,9 @@ export default function Soundboard({ moduleId }) {
     bgAudioRef.current.loop = bgLoop;
     setBgPlaying(false);
 
-    updateConfig({ bg: { audioId, name: file.name, volume: bgVolume, loop: bgLoop } });
+    const newBg = { audioId, name: file.name, volume: bgVolume, loop: bgLoop };
+    setBg(newBg);
+    saveBgConfig(moduleId, newBg);
   }
 
   function playBg() {
@@ -199,30 +213,21 @@ export default function Soundboard({ moduleId }) {
     bgAudioRef.current.loop = bgLoop;
     bgAudioRef.current.play().then(() => setBgPlaying(true)).catch(console.error);
   }
-
-  function pauseBg() {
-    bgAudioRef.current.pause();
-    setBgPlaying(false);
-  }
-
-  function stopBg() {
-    bgAudioRef.current.pause();
-    bgAudioRef.current.currentTime = 0;
-    setBgPlaying(false);
-  }
+  function pauseBg() { bgAudioRef.current.pause(); setBgPlaying(false); }
+  function stopBg() { bgAudioRef.current.pause(); bgAudioRef.current.currentTime = 0; setBgPlaying(false); }
 
   function handleVolumeChange(v) {
     const vol = parseFloat(v);
     setBgVolume(vol);
     bgAudioRef.current.volume = vol;
-    if (config.bg) updateConfig({ bg: { ...config.bg, volume: vol } });
+    if (bg) { const updated = { ...bg, volume: vol }; setBg(updated); saveBgConfig(moduleId, updated); }
   }
 
   function toggleLoop() {
     const next = !bgLoop;
     setBgLoop(next);
     bgAudioRef.current.loop = next;
-    if (config.bg) updateConfig({ bg: { ...config.bg, loop: next } });
+    if (bg) { const updated = { ...bg, loop: next }; setBg(updated); saveBgConfig(moduleId, updated); }
   }
 
   bgAudioRef.current.onended = () => { if (!bgLoop) setBgPlaying(false); };
@@ -238,38 +243,34 @@ export default function Soundboard({ moduleId }) {
     const newBites = [];
     for (const file of files) {
       const id = makeId();
-      await saveAudio(id, file);
-      blobCacheRef.current[id] = URL.createObjectURL(file);
-      newBites.push({ id, name: file.name.replace(/\.[^.]+$/, "") });
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const storagePath = `${moduleId || "global"}/${id}-${safeName}`;
+      const result = await uploadAudio(file, storagePath);
+
+      if (result.success) {
+        blobCacheRef.current[id] = result.url;
+        newBites.push({ id, name: file.name.replace(/\.[^.]+$/, ""), url: result.url, storagePath });
+      } else {
+        // Fallback to IndexedDB if Supabase upload fails
+        await saveAudio(id, file);
+        blobCacheRef.current[id] = URL.createObjectURL(file);
+        newBites.push({ id, name: file.name.replace(/\.[^.]+$/, "") });
+      }
     }
 
-    updateConfig({ bites: [...config.bites, ...newBites] });
+    await persistBites([...bites, ...newBites]);
     setBiteLoading(false);
   }
 
-  // Pre-load blob URLs for all bites into cache (runs on mount and when bites change)
-  useEffect(() => {
-    config.bites.forEach(bite => {
-      if (!blobCacheRef.current[bite.id]) {
-        getBlobUrl(bite.id);
-      }
-    });
-  }, [config.bites]);
-
   async function playBite(audioId) {
     let url = blobCacheRef.current[audioId];
-    if (!url) {
-      url = await getBlobUrl(audioId);
-      if (!url) return;
-    }
-
+    if (!url) { url = await getBlobUrl(audioId); if (!url) return; }
     const audio = new Audio(url);
     if (!activeBitesRef.current[audioId]) activeBitesRef.current[audioId] = [];
     activeBitesRef.current[audioId].push(audio);
     audio.addEventListener("ended", () => {
-      if (activeBitesRef.current[audioId]) {
+      if (activeBitesRef.current[audioId])
         activeBitesRef.current[audioId] = activeBitesRef.current[audioId].filter(a => a !== audio);
-      }
     });
     audio.play().catch(console.error);
   }
@@ -280,19 +281,25 @@ export default function Soundboard({ moduleId }) {
   }
 
   async function removeBite(id) {
+    const bite = bites.find(b => b.id === id);
     (activeBitesRef.current[id] || []).forEach(a => a.pause());
     delete activeBitesRef.current[id];
-    await deleteAudio(id);
+
+    if (bite?.storagePath) await deleteAudioFile(bite.storagePath);
+    await deleteAudio(id); // legacy cleanup (no-op if not in IndexedDB)
+
     if (blobCacheRef.current[id]) {
-      URL.revokeObjectURL(blobCacheRef.current[id]);
+      if (blobCacheRef.current[id].startsWith("blob:"))
+        URL.revokeObjectURL(blobCacheRef.current[id]);
       delete blobCacheRef.current[id];
     }
-    updateConfig({ bites: config.bites.filter(b => b.id !== id) });
+
+    await persistBites(bites.filter(b => b.id !== id));
   }
 
-  function renameBite(id, name) {
-    updateConfig({ bites: config.bites.map(b => b.id === id ? { ...b, name } : b) });
+  async function renameBite(id, name) {
     setEditingId(null);
+    await persistBites(bites.map(b => b.id === id ? { ...b, name } : b));
   }
 
   // ── recording ─────────────────────────────────────────────────────────────
@@ -300,34 +307,51 @@ export default function Soundboard({ moduleId }) {
   async function startRecording() {
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
-        alert("Microphone access requires HTTPS. Make sure you are using https:// in the address bar, not http://.");
+        alert("Microphone access requires HTTPS. Make sure you are using https:// in the address bar.");
         return;
       }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       chunksRef.current = [];
 
-      // Pick the best format this browser supports — iOS Safari needs mp4, Chrome uses webm
       const mimeType = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg"]
         .find(t => MediaRecorder.isTypeSupported(t)) || "";
-
       const mr = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+
       mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       mr.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
         clearInterval(recTimerRef.current);
         setRecTime(0);
+        if (cancelRecRef.current) { cancelRecRef.current = false; return; }
 
-        const blob = new Blob(chunksRef.current, { type: mimeType || mr.mimeType || "audio/webm" });
+        const finalMime = mimeType || mr.mimeType || "audio/webm";
+        const blob = new Blob(chunksRef.current, { type: finalMime });
         const id = makeId();
-        await saveAudio(id, blob);
-        blobCacheRef.current[id] = URL.createObjectURL(blob);
         const name = `Rec ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-        setConfig(prev => {
-          const next = { ...prev, bites: [...prev.bites, { id, name }] };
-          saveConfig(moduleId, next);
-          return next;
-        });
+        const ext = finalMime.includes("mp4") ? "mp4" : "webm";
+        const storagePath = `${moduleId || "global"}/${id}-rec.${ext}`;
+
+        const result = await uploadAudio(blob, storagePath);
+        if (result.success) {
+          blobCacheRef.current[id] = result.url;
+          const newBite = { id, name, url: result.url, storagePath };
+          setBites(prev => {
+            const next = [...prev, newBite];
+            if (moduleId) saveSoundboard(moduleId, next);
+            return next;
+          });
+        } else {
+          // Fallback to IndexedDB
+          await saveAudio(id, blob);
+          blobCacheRef.current[id] = URL.createObjectURL(blob);
+          setBites(prev => {
+            const next = [...prev, { id, name }];
+            if (moduleId) saveSoundboard(moduleId, next);
+            return next;
+          });
+        }
       };
+
       mediaRecRef.current = mr;
       mr.start();
       setRecording(true);
@@ -338,15 +362,18 @@ export default function Soundboard({ moduleId }) {
     }
   }
 
-  function stopRecording() {
+  function stopRecording() { mediaRecRef.current?.stop(); setRecording(false); }
+
+  function cancelRecording() {
+    cancelRecRef.current = true;
     mediaRecRef.current?.stop();
     setRecording(false);
   }
 
   // ── render ────────────────────────────────────────────────────────────────
 
-  const hasBg = !!config.bg;
-  const hasBites = config.bites.length > 0;
+  const hasBg = !!bg;
+  const hasBites = bites.length > 0;
 
   return (
     <div style={{
@@ -355,7 +382,6 @@ export default function Soundboard({ moduleId }) {
       border: "1px solid color-mix(in oklab, var(--text) 10%, transparent)",
       overflow: "hidden"
     }}>
-      {/* Toggle header */}
       <button
         onClick={() => setOpen(o => !o)}
         style={{
@@ -367,23 +393,17 @@ export default function Soundboard({ moduleId }) {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 17 }}>🎵</span>
           <span style={{ fontWeight: 700, fontSize: 15 }}>Soundboard</span>
-          {bgPlaying && (
-            <span style={badge("var(--brand)")}>♪ Playing</span>
-          )}
-          {recording && (
-            <span style={badge("crimson")}>● {fmtTime(recTime)}</span>
-          )}
+          {bgPlaying && <span style={badge("var(--brand)")}>♪ Playing</span>}
+          {recording && <span style={badge("crimson")}>● {fmtTime(recTime)}</span>}
         </div>
         <span style={{ color: "var(--muted)", fontSize: 11 }}>{open ? "▲" : "▼"}</span>
       </button>
 
-      {/* Body */}
       {open && (
         <div style={{
           padding: "0 16px 16px",
           borderTop: "1px solid color-mix(in oklab, var(--text) 10%, transparent)",
-          display: "grid",
-          gap: 20
+          display: "grid", gap: 20
         }}>
 
           {/* ── Background Music ── */}
@@ -399,13 +419,12 @@ export default function Soundboard({ moduleId }) {
             {hasBg ? (
               <>
                 <div style={{ fontSize: 13, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  ♪ {config.bg.name}
+                  ♪ {bg.name}
                 </div>
-
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                  <button onClick={playBg}  disabled={bgPlaying || bgLoading}  style={ctrlBtn(bgPlaying || bgLoading)}>▶ Play</button>
-                  <button onClick={pauseBg} disabled={!bgPlaying} style={ctrlBtn(!bgPlaying)}>⏸ Pause</button>
-                  <button onClick={stopBg}  disabled={!hasBg}     style={ctrlBtn(!hasBg)}>⏹ Stop</button>
+                  <button onClick={playBg}  disabled={bgPlaying || bgLoading} style={ctrlBtn(bgPlaying || bgLoading)}>▶ Play</button>
+                  <button onClick={pauseBg} disabled={!bgPlaying}             style={ctrlBtn(!bgPlaying)}>⏸ Pause</button>
+                  <button onClick={stopBg}  disabled={!hasBg}                 style={ctrlBtn(!hasBg)}>⏹ Stop</button>
                   <button
                     onClick={toggleLoop}
                     style={{
@@ -419,12 +438,10 @@ export default function Soundboard({ moduleId }) {
                     title="Toggle loop"
                   >🔁 Loop</button>
                 </div>
-
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ fontSize: 14 }}>🔊</span>
                   <input
-                    type="range" min="0" max="1" step="0.05"
-                    value={bgVolume}
+                    type="range" min="0" max="1" step="0.05" value={bgVolume}
                     onChange={e => handleVolumeChange(e.target.value)}
                     style={{ flex: 1, accentColor: "var(--brand)" }}
                   />
@@ -448,45 +465,38 @@ export default function Soundboard({ moduleId }) {
               <span style={sectionLabel}>Soundbites</span>
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 {hasBites && (
-                  <button
-                    onClick={stopAllBites}
-                    style={{ ...ctrlBtn(false), fontSize: 12, padding: "5px 10px" }}
-                    title="Stop all currently playing soundbites"
-                  >
+                  <button onClick={stopAllBites} style={{ ...ctrlBtn(false), fontSize: 12, padding: "5px 10px" }} title="Stop all">
                     ⏹ Stop All
                   </button>
                 )}
-
                 {recording ? (
-                  <button onClick={stopRecording} style={recStopBtn}>
-                    ⏹ Stop {fmtTime(recTime)}
-                  </button>
+                  <>
+                    <button onClick={stopRecording} style={recSaveBtn}>✓ Save {fmtTime(recTime)}</button>
+                    <button onClick={cancelRecording} style={recCancelBtn}>✕ Cancel</button>
+                  </>
                 ) : (
-                  <button onClick={startRecording} disabled={biteLoading} style={recBtn}>
-                    ● Record
-                  </button>
+                  <button onClick={startRecording} disabled={biteLoading} style={recBtn}>● Record</button>
                 )}
-
                 <label style={{ cursor: biteLoading ? "not-allowed" : "pointer" }}>
                   <input type="file" accept="audio/*" multiple onChange={handleBiteFiles} disabled={biteLoading} hidden />
                   <span style={{ ...pillBtn, opacity: biteLoading ? 0.5 : 1, cursor: biteLoading ? "not-allowed" : "pointer" }}>
-                    {biteLoading ? "Saving…" : "+ Add Files"}
+                    {biteLoading ? "Uploading…" : "+ Add Files"}
                   </span>
                 </label>
               </div>
             </div>
 
-            {!hasBites ? (
+            {loadingBites ? (
+              <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", fontStyle: "italic" }}>
+                Loading soundbites…
+              </p>
+            ) : !hasBites ? (
               <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", fontStyle: "italic" }}>
                 No soundbites yet. Add audio files or use the Record button to capture from your microphone.
               </p>
             ) : (
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))",
-                gap: 8
-              }}>
-                {config.bites.map(bite => (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 8 }}>
+                {bites.map(bite => (
                   <div key={bite.id} style={{ display: "grid", gap: 4 }}>
                     {editingId === bite.id ? (
                       <div style={{ display: "flex", gap: 4 }}>
@@ -511,41 +521,25 @@ export default function Soundboard({ moduleId }) {
                       </div>
                     ) : (
                       <button
-                        onPointerDown={(e) => { e.preventDefault(); playBite(bite.id); }}
+                        onPointerDown={e => { e.preventDefault(); playBite(bite.id); }}
                         title={`Play: ${bite.name}`}
                         style={{
-                          padding: "10px 8px",
-                          borderRadius: 10,
-                          background: "var(--surface)",
-                          color: "var(--text)",
+                          padding: "10px 8px", borderRadius: 10,
+                          background: "var(--surface)", color: "var(--text)",
                           border: "1px solid color-mix(in oklab, var(--brand) 25%, transparent)",
-                          cursor: "pointer",
-                          fontWeight: 600,
-                          fontSize: 12,
-                          textAlign: "center",
-                          minHeight: 52,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
+                          cursor: "pointer", fontWeight: 600, fontSize: 12,
+                          textAlign: "center", minHeight: 52,
+                          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                           width: "100%"
                         }}
                       >
                         ▶ {bite.name}
                       </button>
                     )}
-
                     {editingId !== bite.id && (
                       <div style={{ display: "flex", gap: 4 }}>
-                        <button
-                          onClick={() => { setEditingId(bite.id); setEditName(bite.name); }}
-                          style={tinyBtn}
-                          title="Rename"
-                        >✎</button>
-                        <button
-                          onClick={() => removeBite(bite.id)}
-                          style={{ ...tinyBtn, color: "crimson" }}
-                          title="Remove"
-                        >✕</button>
+                        <button onClick={() => { setEditingId(bite.id); setEditName(bite.name); }} style={tinyBtn} title="Rename">✎</button>
+                        <button onClick={() => removeBite(bite.id)} style={{ ...tinyBtn, color: "crimson" }} title="Remove">✕</button>
                       </div>
                     )}
                   </div>
@@ -597,11 +591,18 @@ const recBtn = {
   border: "1px solid color-mix(in oklab, crimson 35%, transparent)", minHeight: 32
 };
 
-const recStopBtn = {
+const recSaveBtn = {
   padding: "5px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700,
-  cursor: "pointer", color: "crimson",
-  background: "color-mix(in oklab, crimson 12%, var(--surface))",
-  border: "1px solid color-mix(in oklab, crimson 35%, transparent)", minHeight: 32
+  cursor: "pointer", color: "var(--brand)",
+  background: "color-mix(in oklab, var(--brand) 12%, var(--surface))",
+  border: "1px solid color-mix(in oklab, var(--brand) 35%, transparent)", minHeight: 32
+};
+
+const recCancelBtn = {
+  padding: "5px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700,
+  cursor: "pointer", color: "var(--muted)",
+  background: "var(--surface)",
+  border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)", minHeight: 32
 };
 
 const tinyBtn = {
