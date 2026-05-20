@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { saveAudio, loadAudio, deleteAudio } from "../../lib/audioStore.js";
 import { uploadAudio, getSoundboard, saveSoundboard, deleteAudioFile } from "../../lib/supabase.js";
+import { useAuth } from "../../context/AuthContext.jsx";
 
 const cfgKey = (moduleId) => `fizzrix.soundboard.${moduleId || "global"}`;
 
@@ -47,6 +48,7 @@ const PRESETS = [
 ];
 
 export default function Soundboard({ moduleId }) {
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [bg, setBg] = useState(() => loadBgConfig(moduleId));
   const [bites, setBites] = useState([]);
@@ -344,7 +346,7 @@ export default function Soundboard({ moduleId }) {
     for (const file of files) {
       const id = makeId();
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const storagePath = `${moduleId || "global"}/${id}-${safeName}`;
+      const storagePath = `${user?.id || "anon"}/${moduleId || "global"}/${id}-${safeName}`;
       const result = await uploadAudio(file, storagePath);
 
       if (result.success) {
@@ -428,7 +430,7 @@ export default function Soundboard({ moduleId }) {
         const id = makeId();
         const name = `Rec ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
         const ext = finalMime.includes("mp4") ? "mp4" : "webm";
-        const storagePath = `${moduleId || "global"}/${id}-rec.${ext}`;
+        const storagePath = `${user?.id || "anon"}/${moduleId || "global"}/${id}-rec.${ext}`;
 
         const result = await uploadAudio(blob, storagePath);
         if (result.success) {
