@@ -1,12 +1,13 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useData } from "../hooks/useData.js";
+import { useAuth } from "../context/AuthContext.jsx";
+import { publishToLibrary } from "../lib/supabase.js";
 
 const isTouch = window.matchMedia("(pointer: coarse)").matches;
 
 function HoverButton({ children, onClick, style, hoverStyle, ...props }) {
   const [isHovered, setIsHovered] = useState(false);
-
   return (
     <button
       onClick={onClick}
@@ -22,27 +23,27 @@ function HoverButton({ children, onClick, style, hoverStyle, ...props }) {
 
 function Modules() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { modules, loading, loadModules, addModule, removeModule } = useData();
   const [name, setName] = useState("");
   const [category, setCategory] = useState("one-shot");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmPublish, setConfirmPublish] = useState(null); // module id pending confirm
+  const [publishing, setPublishing] = useState(false);
+  const [publishedIds, setPublishedIds] = useState(new Set()); // IDs published this session
 
-  // Load modules on mount
   useEffect(() => {
     loadModules();
   }, [loadModules]);
 
-  const byCategory = useMemo(() => {
-    return {
-      "One‑Shots": modules.filter(m => m.category === "one-shot"),
-      "Campaigns": modules.filter(m => m.category === "campaign")
-    };
-  }, [modules]);
+  const byCategory = useMemo(() => ({
+    "One‑Shots": modules.filter(m => m.category === "one-shot"),
+    "Campaigns": modules.filter(m => m.category === "campaign")
+  }), [modules]);
 
   const handleAdd = useCallback(async (e) => {
     e.preventDefault();
     if (!name.trim() || isSubmitting) return;
-    
     try {
       setIsSubmitting(true);
       const m = await addModule({ name, category });
@@ -56,10 +57,6 @@ function Modules() {
     }
   }, [name, category, isSubmitting, addModule, navigate]);
 
-  function open(id) {
-    navigate(`/modules/${id}`);
-  }
-
   const handleDeleteModule = useCallback(async (id, name) => {
     if (confirm(`Delete "${name}"? This cannot be undone.`)) {
       try {
@@ -70,6 +67,24 @@ function Modules() {
       }
     }
   }, [removeModule]);
+
+  const handlePublish = useCallback(async (module) => {
+    setPublishing(true);
+    try {
+      const ownerName =
+        user?.user_metadata?.full_name ||
+        user?.user_metadata?.name ||
+        user?.email?.split('@')[0] ||
+        'Anonymous';
+      await publishToLibrary(module, ownerName);
+      setPublishedIds(prev => new Set([...prev, module.id]));
+      setConfirmPublish(null);
+    } catch (err) {
+      alert('Could not publish: ' + err.message);
+    } finally {
+      setPublishing(false);
+    }
+  }, [user]);
 
   return (
     <section style={{ padding: "20px 0" }}>
@@ -123,107 +138,78 @@ function Modules() {
         <HoverButton
           type="submit"
           disabled={isSubmitting || !name.trim()}
-          style={{
-            padding: "10px 14px",
-            background: "linear-gradient(90deg, var(--brand), var(--brand-2))",
-            color: "#0b0d12",
-            border: 0,
-            borderRadius: "10px",
-            cursor: isSubmitting || !name.trim() ? "not-allowed" : "pointer",
-            fontWeight: 700,
-            opacity: isSubmitting || !name.trim() ? 0.6 : 1,
-            transition: "background 0.2s ease"
-          }}
-          hoverStyle={{
-            padding: "10px 14px",
-            background: "linear-gradient(270deg, var(--brand), var(--brand-2))",
-            color: "#0b0d12",
-            border: 0,
-            borderRadius: "10px",
-            cursor: isSubmitting || !name.trim() ? "not-allowed" : "pointer",
-            fontWeight: 700,
-            opacity: isSubmitting || !name.trim() ? 0.6 : 1,
-            transition: "background 0.2s ease"
-          }}
+          style={addBtnStyle(isSubmitting || !name.trim())}
+          hoverStyle={addBtnHoverStyle(isSubmitting || !name.trim())}
         >
           {isSubmitting ? "Adding..." : "Add"}
         </HoverButton>
       </form>
 
-      {/* Lists */}
+      {/* Module lists */}
       <div style={{ display: "grid", gap: "16px", marginTop: "16px" }}>
         {loading.modules ? (
-          <div style={{ 
-            padding: "40px", 
-            textAlign: "center", 
-            color: "var(--muted)",
-            background: "var(--bg-elev)", 
-            borderRadius: "var(--radius)", 
-            border: "1px solid color-mix(in oklab, var(--text) 10%, transparent)" 
-          }}>
-            Loading modules...
-          </div>
+          <div style={loadingBox}>Loading modules...</div>
         ) : (
           Object.entries(byCategory).map(([label, list]) => (
-            <div key={label} style={{ background: "var(--bg-elev)", borderRadius: "var(--radius)", border: "1px solid color-mix(in oklab, var(--text) 10%, transparent)" }}>
+            <div key={label} style={sectionBox}>
               <div style={{ padding: "12px 12px 0 12px" }}>
                 <h3 style={{ margin: 0 }}>{label}</h3>
               </div>
-              <ul style={{ listStyle: "none", margin: 0, padding: "8px 8px 8px 8px", display: "grid", gap: "8px" }}>
+              <ul style={{ listStyle: "none", margin: 0, padding: "8px", display: "grid", gap: "8px" }}>
                 {list.length === 0 && (
                   <li style={{ color: "var(--muted)", padding: "8px 12px" }}>No modules yet.</li>
                 )}
                 {list.map(m => (
                   <li key={m.id}>
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "8px",
-                        alignItems: "center"
-                      }}
-                    >
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                      {/* Module name button */}
                       <HoverButton
-                        onClick={() => open(m.id)}
+                        onClick={() => navigate(`/modules/${m.id}`)}
                         title="Open module editor"
-                        style={{
-                          flex: 1,
-                          textAlign: "left",
-                          padding: "10px 12px",
-                          background: "linear-gradient(90deg, var(--brand), var(--brand-2))",
-                          color: "#0b0d12",
-                          borderRadius: "10px",
-                          border: "1px solid color-mix(in oklab, var(--brand) 30%, transparent)",
-                          cursor: "pointer",
-                          fontWeight: 600,
-                          transition: "background 0.2s ease"
-                        }}
-                        hoverStyle={{
-                          flex: 1,
-                          textAlign: "left",
-                          padding: "10px 12px",
-                          background: "linear-gradient(270deg, var(--brand), var(--brand-2))",
-                          color: "#0b0d12",
-                          borderRadius: "10px",
-                          border: "1px solid color-mix(in oklab, var(--brand) 30%, transparent)",
-                          cursor: "pointer",
-                          fontWeight: 600,
-                          transition: "background 0.2s ease"
-                        }}
+                        style={moduleBtnStyle}
+                        hoverStyle={moduleBtnHoverStyle}
                       >
                         {m.name}
                       </HoverButton>
+
+                      {/* + Library / inline confirm */}
+                      {confirmPublish === m.id ? (
+                        <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
+                          <span style={{ fontSize: "0.78rem", color: "var(--muted)", whiteSpace: "nowrap" }}>
+                            Share publicly?
+                          </span>
+                          <button
+                            onClick={() => handlePublish(m)}
+                            disabled={publishing}
+                            style={confirmYesBtn}
+                          >
+                            {publishing ? "…" : "Yes"}
+                          </button>
+                          <button
+                            onClick={() => setConfirmPublish(null)}
+                            disabled={publishing}
+                            style={confirmCancelBtn}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : publishedIds.has(m.id) ? (
+                        <span style={publishedBadge}>✓ In Library</span>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmPublish(m.id)}
+                          title="Share this module to the Library"
+                          style={libraryBtn}
+                        >
+                          + Library
+                        </button>
+                      )}
+
+                      {/* Delete */}
                       <button
                         onClick={() => handleDeleteModule(m.id, m.name)}
                         title="Delete module"
-                        style={{
-                          padding: "10px 12px",
-                          background: "transparent",
-                          color: "crimson",
-                          borderRadius: "10px",
-                          border: "1px solid color-mix(in oklab, crimson 50%, var(--text) 20%)",
-                          cursor: "pointer",
-                          fontWeight: 600
-                        }}
+                        style={deleteBtnStyle}
                       >
                         Delete
                       </button>
@@ -238,5 +224,113 @@ function Modules() {
     </section>
   );
 }
+
+// ── Styles ────────────────────────────────────────────────────────────────────
+
+const addBtnStyle = (disabled) => ({
+  padding: "10px 14px",
+  background: "linear-gradient(90deg, var(--brand), var(--brand-2))",
+  color: "#0b0d12",
+  border: 0,
+  borderRadius: "10px",
+  cursor: disabled ? "not-allowed" : "pointer",
+  fontWeight: 700,
+  opacity: disabled ? 0.6 : 1,
+  transition: "background 0.2s ease",
+  fontFamily: "inherit",
+});
+
+const addBtnHoverStyle = (disabled) => ({
+  ...addBtnStyle(disabled),
+  background: "linear-gradient(270deg, var(--brand), var(--brand-2))",
+});
+
+const sectionBox = {
+  background: "var(--bg-elev)",
+  borderRadius: "var(--radius)",
+  border: "1px solid color-mix(in oklab, var(--text) 10%, transparent)",
+};
+
+const loadingBox = {
+  padding: "40px",
+  textAlign: "center",
+  color: "var(--muted)",
+  background: "var(--bg-elev)",
+  borderRadius: "var(--radius)",
+  border: "1px solid color-mix(in oklab, var(--text) 10%, transparent)",
+};
+
+const moduleBtnStyle = {
+  flex: 1,
+  textAlign: "left",
+  padding: "10px 12px",
+  background: "linear-gradient(90deg, var(--brand), var(--brand-2))",
+  color: "#0b0d12",
+  borderRadius: "10px",
+  border: "1px solid color-mix(in oklab, var(--brand) 30%, transparent)",
+  cursor: "pointer",
+  fontWeight: 600,
+  transition: "background 0.2s ease",
+  fontFamily: "inherit",
+};
+
+const moduleBtnHoverStyle = {
+  ...moduleBtnStyle,
+  background: "linear-gradient(270deg, var(--brand), var(--brand-2))",
+};
+
+const libraryBtn = {
+  padding: "10px 12px",
+  background: "transparent",
+  color: "var(--accent)",
+  borderRadius: "10px",
+  border: "1px solid color-mix(in oklab, var(--accent) 40%, transparent)",
+  cursor: "pointer",
+  fontWeight: 600,
+  fontSize: "0.82rem",
+  whiteSpace: "nowrap",
+  fontFamily: "inherit",
+};
+
+const confirmYesBtn = {
+  padding: "6px 12px",
+  background: "var(--accent)",
+  color: "#fff",
+  border: "none",
+  borderRadius: "8px",
+  cursor: "pointer",
+  fontWeight: 600,
+  fontSize: "0.82rem",
+  fontFamily: "inherit",
+};
+
+const confirmCancelBtn = {
+  padding: "6px 10px",
+  background: "transparent",
+  color: "var(--muted)",
+  border: "1px solid color-mix(in oklab, var(--text) 15%, transparent)",
+  borderRadius: "8px",
+  cursor: "pointer",
+  fontSize: "0.82rem",
+  fontFamily: "inherit",
+};
+
+const publishedBadge = {
+  padding: "10px 12px",
+  fontSize: "0.78rem",
+  color: "var(--accent)",
+  whiteSpace: "nowrap",
+};
+
+const deleteBtnStyle = {
+  padding: "10px 12px",
+  background: "transparent",
+  color: "crimson",
+  borderRadius: "10px",
+  border: "1px solid color-mix(in oklab, crimson 50%, var(--text) 20%)",
+  cursor: "pointer",
+  fontWeight: 600,
+  fontFamily: "inherit",
+};
 
 export default React.memo(Modules);
