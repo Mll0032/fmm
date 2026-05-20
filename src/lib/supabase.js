@@ -99,6 +99,42 @@ export async function saveSoundboard(moduleId, bites) {
   if (error) console.error('Error saving soundboard:', error)
 }
 
+// ── Library ───────────────────────────────────────────────────────────────────
+
+export async function publishToLibrary(module, ownerName) {
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from('library')
+    .insert([{
+      owner_id: user.id,
+      owner_name: ownerName,
+      module_name: module.name,
+      module_category: module.category,
+      module_data: module.data,
+    }])
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function getLibraryEntries() {
+  const { data, error } = await supabase
+    .from('library')
+    .select('*')
+    .order('published_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function removeFromLibrary(libraryId) {
+  const { error } = await supabase
+    .from('library')
+    .delete()
+    .eq('id', libraryId);
+  if (error) throw error;
+}
+
 // ── Image helpers ─────────────────────────────────────────────────────────────
 
 // Helper function to convert base64 dataURL to File object
