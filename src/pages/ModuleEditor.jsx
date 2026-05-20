@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate, useParams, useBeforeUnload, useLocation } from "react-router-dom";
 import { ModulesStore } from "../state/modulesStore";
 import { useData } from "../hooks/useData.js";
+import { useAuth } from "../context/AuthContext.jsx";
 import Toast from "../components/Toast/Toast";
 import ImageField from "../components/ImageField/ImageField";
 
@@ -59,6 +60,7 @@ export default function ModuleEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { updateModule, renameModule } = useData();
+  const { user } = useAuth();
   const [moduleData, setModuleData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -636,7 +638,7 @@ export default function ModuleEditor() {
               label="Map Image (JPG)"
               value={data.mapImage}
               onChange={(img) => { setData(o => ({ ...o, mapImage: img })); markDirty(); }}
-              storagePath={`modules/${moduleData.id}/map`}
+              storagePath={`${user?.id}/modules/${moduleData.id}/map`}
             />
           </div>
 
@@ -662,7 +664,7 @@ export default function ModuleEditor() {
               label="Introduction Image (JPG)"
               value={data.introImage}
               onChange={(img) => { setData(o => ({ ...o, introImage: img })); markDirty(); }}
-              storagePath={`modules/${moduleData.id}/intro`}
+              storagePath={`${user?.id}/modules/${moduleData.id}/intro`}
             />
           </div>
 
@@ -688,7 +690,7 @@ export default function ModuleEditor() {
               label="Overview Image (JPG)"
               value={data.overviewImage}
               onChange={(img) => { setData(o => ({ ...o, overviewImage: img })); markDirty(); }}
-              storagePath={`modules/${moduleData.id}/overview`}
+              storagePath={`${user?.id}/modules/${moduleData.id}/overview`}
             />
           </div>
         </div>
@@ -774,7 +776,7 @@ export default function ModuleEditor() {
                     label="Episode Image (JPG)"
                     value={ep.image || { dataUrl: "", alt: "", showOnDashboard: false }}
                     onChange={(img) => updateEpisode(ep.id, { image: img })}
-                    storagePath={`modules/${moduleData.id}/episode-${ep.id}`}
+                    storagePath={`${user?.id}/modules/${moduleData.id}/episode-${ep.id}`}
                   />
                   <div style={{ display: "flex", justifyContent: "flex-end" }}>
                     <button
@@ -855,7 +857,7 @@ export default function ModuleEditor() {
                       label="Monster Image (JPG)"
                       value={monster.image || { dataUrl: "", alt: "", showOnDashboard: false }}
                       onChange={(img) => updateMonster(monster.id, { image: img })}
-                      storagePath={`modules/${moduleData.id}/monster-${monster.id}`}
+                      storagePath={`${user?.id}/modules/${moduleData.id}/monster-${monster.id}`}
                     />
                     <div style={{ display: "flex", justifyContent: "flex-end" }}>
                       <button
@@ -962,7 +964,7 @@ export default function ModuleEditor() {
                       label="Magic Item Image (JPG)"
                       value={item.image || { dataUrl: "", alt: "", showOnDashboard: false }}
                       onChange={(img) => updateMagicItem(item.id, { image: img })}
-                      storagePath={`modules/${moduleData.id}/magicitem-${item.id}`}
+                      storagePath={`${user?.id}/modules/${moduleData.id}/magicitem-${item.id}`}
                     />
                     <div style={{ display: "flex", justifyContent: "flex-end" }}>
                       <button
