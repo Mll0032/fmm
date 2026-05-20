@@ -23,6 +23,12 @@ export default function Settings() {
   });
   const [apiKeyInput, setApiKeyInput] = useState(() => getApiKey(getSelectedProvider()));
   const [showKey, setShowKey] = useState(false);
+  const [fsKeyInput, setFsKeyInput] = useState(() => localStorage.getItem("fizzrix.freesound.apikey") || "");
+  const [showFsKey, setShowFsKey] = useState(false);
+  const [fsSaved, setFsSaved] = useState(() => !!localStorage.getItem("fizzrix.freesound.apikey"));
+  const [imgKeyInput, setImgKeyInput] = useState(() => localStorage.getItem("fizzrix.imagegen.apikey") || "");
+  const [showImgKey, setShowImgKey] = useState(false);
+  const [imgKeySaved, setImgKeySaved] = useState(() => !!localStorage.getItem("fizzrix.imagegen.apikey"));
 
   useEffect(() => { applyTheme(settings); }, [settings]);
 
@@ -290,6 +296,75 @@ export default function Settings() {
           </div>
         );
       })()}
+
+      {/* Freesound Library */}
+      <div style={{ display: "grid", gap: 12, marginTop: 12, background: "var(--bg-elev)", padding: 12, borderRadius: "var(--radius)", border: "1px solid color-mix(in oklab, var(--text) 10%, transparent)" }}>
+        <h3 style={{ margin: 0 }}>Soundboard — Freesound Library</h3>
+        <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>
+          Enables royalty-free music search inside the Soundboard. Get a free key at <strong>freesound.org</strong> — create an account, then go to Edit Profile → API Credentials.
+        </p>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <input
+            type={showFsKey ? "text" : "password"}
+            value={fsKeyInput}
+            onChange={e => setFsKeyInput(e.target.value)}
+            placeholder="Freesound API key..."
+            style={{ flex: 1, minWidth: 200, padding: "8px 10px", background: "var(--surface)", color: "var(--text)", borderRadius: 8, border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)", fontFamily: "monospace", fontSize: 13 }}
+          />
+          <button
+            onClick={() => setShowFsKey(s => !s)}
+            style={{ padding: "8px 12px", borderRadius: 8, background: "var(--surface)", color: "var(--text)", border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)", cursor: "pointer" }}
+          >{showFsKey ? "Hide" : "Show"}</button>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <button
+            onClick={() => { localStorage.setItem("fizzrix.freesound.apikey", fsKeyInput); setFsSaved(true); setToast({ show: true, msg: "Freesound key saved" }); }}
+            disabled={!fsKeyInput.trim()}
+            style={{ padding: "8px 12px", borderRadius: 8, background: fsKeyInput.trim() ? "linear-gradient(90deg, var(--brand), var(--brand-2))" : "var(--surface)", color: fsKeyInput.trim() ? "#0b0d12" : "var(--muted)", border: 0, fontWeight: 700, cursor: fsKeyInput.trim() ? "pointer" : "not-allowed" }}
+          >Save Key</button>
+          {fsSaved && (
+            <button
+              onClick={() => { localStorage.removeItem("fizzrix.freesound.apikey"); setFsKeyInput(""); setFsSaved(false); setToast({ show: true, msg: "Freesound key removed" }); }}
+              style={{ padding: "8px 12px", borderRadius: 8, background: "transparent", color: "crimson", border: "1px solid color-mix(in oklab, crimson 50%, var(--text) 20%)", cursor: "pointer" }}
+            >Remove Key</button>
+          )}
+          {fsSaved && <small style={{ color: "var(--muted)" }}>✓ Key saved</small>}
+        </div>
+      </div>
+
+      {/* Image Generation */}
+      <div style={{ display: "grid", gap: 12, marginTop: 12, background: "var(--bg-elev)", padding: 12, borderRadius: "var(--radius)", border: "1px solid color-mix(in oklab, var(--text) 10%, transparent)" }}>
+        <h3 style={{ margin: 0 }}>Image Generation</h3>
+        <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>
+          Powers the <strong>✦ Generate</strong> button in the module editor. Uses OpenAI DALL-E (same key as text AI — if you already saved an OpenAI key under AI Assistant, you don't need to enter it again here).
+        </p>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <input
+            type={showImgKey ? "text" : "password"}
+            value={imgKeyInput}
+            onChange={e => setImgKeyInput(e.target.value)}
+            placeholder="sk-..."
+            style={{ flex: 1, minWidth: 200, padding: "8px 10px", background: "var(--surface)", color: "var(--text)", borderRadius: 8, border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)", fontFamily: "monospace", fontSize: 13 }}
+          />
+          <button onClick={() => setShowImgKey(s => !s)} style={{ padding: "8px 12px", borderRadius: 8, background: "var(--surface)", color: "var(--text)", border: "1px solid color-mix(in oklab, var(--text) 12%, transparent)", cursor: "pointer" }}>
+            {showImgKey ? "Hide" : "Show"}
+          </button>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <button
+            onClick={() => { localStorage.setItem("fizzrix.imagegen.apikey", imgKeyInput.trim()); setImgKeySaved(true); setToast({ show: true, msg: "Image generation key saved" }); }}
+            disabled={!imgKeyInput.trim()}
+            style={{ padding: "8px 12px", borderRadius: 8, background: imgKeyInput.trim() ? "linear-gradient(90deg, var(--brand), var(--brand-2))" : "var(--surface)", color: imgKeyInput.trim() ? "#0b0d12" : "var(--muted)", border: 0, fontWeight: 700, cursor: imgKeyInput.trim() ? "pointer" : "not-allowed" }}
+          >Save Key</button>
+          {imgKeySaved && (
+            <button
+              onClick={() => { localStorage.removeItem("fizzrix.imagegen.apikey"); setImgKeyInput(""); setImgKeySaved(false); setToast({ show: true, msg: "Image generation key removed" }); }}
+              style={{ padding: "8px 12px", borderRadius: 8, background: "transparent", color: "crimson", border: "1px solid color-mix(in oklab, crimson 50%, var(--text) 20%)", cursor: "pointer" }}
+            >Remove Key</button>
+          )}
+          {imgKeySaved && <small style={{ color: "var(--muted)" }}>✓ Key saved</small>}
+        </div>
+      </div>
 
       {/* Data Management */}
       <div style={{ display: "grid", gap: 10, marginTop: 12, background: "var(--bg-elev)", padding: 12, borderRadius: "var(--radius)", border: "1px solid color-mix(in oklab, var(--text) 10%, transparent)" }}>
