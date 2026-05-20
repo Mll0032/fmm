@@ -38,7 +38,7 @@ function DraggableItem({ id, children, position, size = 1, disabled = false, isU
   const dragProps = disabled ? {} : { ...attributes, ...listeners };
 
   return (
-    <div ref={setNodeRef} style={style} {...dragProps}>
+    <div ref={setNodeRef} style={style} data-card-id={id} {...dragProps}>
       {children}
     </div>
   );
@@ -135,11 +135,34 @@ export default function DraggableGrid({
     };
   }, []);
 
-  // Update container size whenever positions change
+  // Update container size whenever positions change (uses fixed CARD_HEIGHT as a baseline)
   React.useEffect(() => {
     const newSize = calculateContainerSize(positions);
     setContainerSize(newSize);
   }, [positions, calculateContainerSize]);
+
+  // After every render, measure actual card heights from the DOM and expand the
+  // container if any card's real bottom edge exceeds the calculated height.
+  // useLayoutEffect runs before paint so there's no visible jump.
+  React.useLayoutEffect(() => {
+    if (!containerRef.current) return;
+    const children = Array.from(containerRef.current.children);
+    if (children.length === 0) return;
+
+    let maxBottom = 0;
+    for (const child of children) {
+      maxBottom = Math.max(maxBottom, child.offsetTop + child.offsetHeight);
+    }
+
+    const padding = GRID_SIZE * 4;
+    const requiredHeight = Math.max(600, maxBottom + padding);
+
+    setContainerSize(prev => {
+      // Returning the same reference bails out of re-render — breaks the loop
+      if (requiredHeight <= prev.height) return prev;
+      return { ...prev, height: requiredHeight };
+    });
+  });
 
   const handleDragEnd = useCallback(async (event) => {
     if (disabled || !onItemsChange) return;
@@ -154,11 +177,11 @@ export default function DraggableGrid({
     const draggedItem = items.find(i => i.id === active.id);
     const cardWidth = getCardWidth(draggedItem?.size || 1);
     const maxX = Math.floor((containerWidth - cardWidth) / GRID_SIZE) * GRID_SIZE;
-    const maxY = Math.floor((containerSize.height - CARD_HEIGHT) / GRID_SIZE) * GRID_SIZE;
+    // No maxY clamp — the grid expands downward automatically after drop via useLayoutEffect
 
     const newPosition = {
       x: Math.min(maxX, Math.max(0, snapToGrid(currentPosition.x + delta.x))),
-      y: Math.min(maxY, Math.max(0, snapToGrid(currentPosition.y + delta.y)))
+      y: Math.max(0, snapToGrid(currentPosition.y + delta.y))
     };
 
     // Immediately update local state to show item in new position with transparency
