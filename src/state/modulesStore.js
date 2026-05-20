@@ -34,12 +34,14 @@ async function read() {
 // Create new module in Supabase
 async function create(moduleData) {
   try {
+    const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase
       .from('modules')
       .insert([{
         name: moduleData.name,
         category: moduleData.category,
-        data: moduleData.data
+        data: moduleData.data,
+        user_id: user?.id ?? null,
       }])
       .select()
       .single();
