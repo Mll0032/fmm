@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useData } from "../hooks/useData.js";
 import { getLibraryEntries, removeFromLibrary } from "../lib/supabase.js";
+import { SYSTEMS } from "../lib/systems.js";
 
 const CATEGORY_LABEL = { "one-shot": "One‑Shot", "campaign": "Campaign" };
 
@@ -18,6 +19,8 @@ export default function Library() {
   const [addingId, setAddingId] = useState(null);
   const [addedIds, setAddedIds] = useState(new Set());
   const [removingId, setRemovingId] = useState(null);
+  const [searchName, setSearchName] = useState('');
+  const [searchSystem, setSearchSystem] = useState('');
 
   useEffect(() => {
     getLibraryEntries()
@@ -27,7 +30,15 @@ export default function Library() {
   }, []);
 
   const myEntries = entries.filter(e => e.owner_id === user?.id);
-  const browseEntries = entries.filter(e => e.owner_id !== user?.id);
+  const allBrowseEntries = entries.filter(e => e.owner_id !== user?.id);
+
+  const availableSystems = SYSTEMS;
+
+  const browseEntries = allBrowseEntries.filter(entry => {
+    const nameMatch = !searchName || entry.module_name.toLowerCase().includes(searchName.toLowerCase());
+    const systemMatch = !searchSystem || entry.system === searchSystem;
+    return nameMatch && systemMatch;
+  });
 
   const handleAdd = useCallback(async (entry) => {
     setAddingId(entry.id);
@@ -109,12 +120,42 @@ export default function Library() {
           <div style={{ ...s.section, marginTop: 24 }}>
             <div style={s.sectionHeader}>
               <h3 style={s.sectionTitle}>Browse Community Modules</h3>
-              <span style={s.sectionCount}>{browseEntries.length}</span>
+              <span style={s.sectionCount}>{browseEntries.length}{browseEntries.length !== allBrowseEntries.length ? ` of ${allBrowseEntries.length}` : ''}</span>
             </div>
+
+            {/* Filter bar */}
+            {allBrowseEntries.length > 0 && (
+              <div style={s.filterBar}>
+                <input
+                  type="search"
+                  placeholder="Search by name…"
+                  value={searchName}
+                  onChange={e => setSearchName(e.target.value)}
+                  style={s.filterInput}
+                />
+                <select
+                  value={searchSystem}
+                  onChange={e => setSearchSystem(e.target.value)}
+                  style={s.filterSelect}
+                >
+                  <option value="">All Systems</option>
+                  {availableSystems.map(sys => (
+                    <option key={sys} value={sys}>{sys}</option>
+                  ))}
+                </select>
+                {(searchName || searchSystem) && (
+                  <button onClick={() => { setSearchName(''); setSearchSystem(''); }} style={s.clearBtn}>
+                    Clear
+                  </button>
+                )}
+              </div>
+            )}
 
             {browseEntries.length === 0 ? (
               <p style={s.emptyNote}>
-                No community modules yet. Be the first to share one!
+                {allBrowseEntries.length === 0
+                  ? 'No community modules yet. Be the first to share one!'
+                  : 'No modules match your search.'}
               </p>
             ) : (
               <div style={s.grid}>
@@ -156,6 +197,7 @@ function LibraryCard({ entry, action }) {
         <span style={s.cardDate}>{formatDate(entry.published_at)}</span>
       </div>
       <h4 style={s.cardName}>{entry.module_name}</h4>
+      {entry.system && <p style={s.cardSystem}>{entry.system}</p>}
       <p style={s.cardOwner}>by {entry.owner_name || "Anonymous"}</p>
       <div style={s.cardFooter}>
         {action}
@@ -253,10 +295,55 @@ const s = {
     fontWeight: 700,
     lineHeight: 1.3,
   },
+  cardSystem: {
+    margin: "2px 0 0",
+    fontSize: "0.8rem",
+    fontWeight: 600,
+    color: "var(--text)",
+  },
   cardOwner: {
     margin: 0,
     fontSize: "0.78rem",
     color: "var(--muted)",
+  },
+  filterBar: {
+    display: "flex",
+    gap: 8,
+    alignItems: "center",
+    marginBottom: 14,
+    flexWrap: "wrap",
+  },
+  filterInput: {
+    flex: 1,
+    minWidth: 160,
+    padding: "7px 10px",
+    borderRadius: "var(--radius)",
+    border: "1px solid color-mix(in oklab, var(--text) 15%, transparent)",
+    background: "color-mix(in oklab, var(--text) 4%, transparent)",
+    color: "var(--text)",
+    fontSize: "0.85rem",
+    fontFamily: "inherit",
+  },
+  filterSelect: {
+    padding: "7px 10px",
+    borderRadius: "var(--radius)",
+    border: "1px solid color-mix(in oklab, var(--text) 15%, transparent)",
+    background: "var(--surface)",
+    color: "var(--text)",
+    fontSize: "0.85rem",
+    fontFamily: "inherit",
+    cursor: "pointer",
+  },
+  clearBtn: {
+    padding: "7px 12px",
+    borderRadius: "var(--radius)",
+    border: "1px solid color-mix(in oklab, var(--text) 15%, transparent)",
+    background: "transparent",
+    color: "var(--muted)",
+    fontSize: "0.82rem",
+    cursor: "pointer",
+    fontFamily: "inherit",
+    whiteSpace: "nowrap",
   },
   cardFooter: {
     marginTop: "auto",
