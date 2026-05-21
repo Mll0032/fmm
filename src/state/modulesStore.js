@@ -92,20 +92,15 @@ async function update(id, moduleData) {
   }
 }
 
-// Delete module from Supabase
+// Delete module from Supabase — sessions and soundboards cascade automatically via FK
 async function remove(id) {
   try {
-    const { error } = await supabase
-      .from('modules')
-      .delete()
-      .eq('id', id);
-
+    const { error } = await supabase.from('modules').delete().eq('id', id);
     if (error) throw error;
-
     return true;
   } catch (error) {
-    console.error('Error deleting module:', error);
-    throw error;
+    console.error('Error deleting module:', error.message ?? error);
+    throw new Error(error.message ?? 'Unknown error deleting module');
   }
 }
 
