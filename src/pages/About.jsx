@@ -1,4 +1,5 @@
 import React from "react";
+import headshot from "../assets/mllheadshot.jpg";
 
 export default function About() {
   return (
