@@ -43,10 +43,14 @@ export default function About() {
           </p>
           <ul style={listStyle}>
             <li style={listItemStyle}>📚 <strong>Module Organization:</strong> Create and manage campaign modules with episodes, monsters, and magic items</li>
-            <li style={listItemStyle}>🎮 <strong>Session Dashboard:</strong> Dynamic dashboard for real-time campaign management</li>
-            <li style={listItemStyle}>👥 <strong>Player Management:</strong> Track player information and contact preferences</li>
+            <li style={listItemStyle}>🎮 <strong>Session Dashboard:</strong> Drag-and-drop dashboard for real-time campaign management during live play</li>
             <li style={listItemStyle}>🔒 <strong>Session Locking:</strong> Prevent accidental changes during active gameplay</li>
-            <li style={listItemStyle}>🖼️ <strong>Visual Content:</strong> Support for images and rich content in your campaigns</li>
+            <li style={listItemStyle}>🖼️ <strong>Visual Content:</strong> Upload and display images for maps, monsters, magic items, and more</li>
+            <li style={listItemStyle}>🤖 <strong>AI Assistant:</strong> Built-in AI writing tools powered by your choice of Anthropic Claude, OpenAI, Groq, Gemini, or OpenRouter</li>
+            <li style={listItemStyle}>🎵 <strong>Soundboard:</strong> Play ambient sound bites and background music during sessions, with royalty-free track search via Freesound</li>
+            <li style={listItemStyle}>🌐 <strong>Community Library:</strong> Publish your modules for others to discover, or import community-created modules directly into your collection</li>
+            <li style={listItemStyle}>🎨 <strong>Theming:</strong> Light, dark, and system-default themes with high contrast and reduced motion accessibility options</li>
+            <li style={listItemStyle}>🔐 <strong>Secure Auth:</strong> Sign in with Google or Discord — your data is private and only visible to you</li>
           </ul>
         </div>
 
@@ -128,12 +132,8 @@ export default function About() {
               <p style={featureDescStyle}>Email or text campaign content directly to players</p>
             </div>
             <div style={featureCardStyle}>
-              <h4 style={featureTitleStyle}>🎲 Library</h4>
-              <p style={featureDescStyle}>Build a library to share your homebrew and custom sections with the world</p>
-            </div>
-            <div style={featureCardStyle}>
-              <h4 style={featureTitleStyle}>📊 Campaign Analytics</h4>
-              <p style={featureDescStyle}>Track player engagement and campaign progression</p>
+              <h4 style={featureTitleStyle}>👥 Player Management</h4>
+              <p style={featureDescStyle}>Track player information, contact preferences, and character details all in one place</p>
             </div>
           </div>
         </div>
