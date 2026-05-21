@@ -51,7 +51,7 @@ export default function Settings() {
     : "1"
 );
     root.dataset.reducedMotion = s.reducedMotion ? "true" : "false";
-    root.dataset.compactMode = s.compactMode ? "true" : "false";
+    root.dataset.widescreen = s.widescreen ? "true" : "false";
   }
 
   function update(updates) {
@@ -167,7 +167,7 @@ export default function Settings() {
       </div>
 
       <PillToggle label="Reduced Motion" checked={settings.reducedMotion} onChange={(v) => update({ reducedMotion: v })} />
-      <PillToggle label="Compact Mode" checked={settings.compactMode} onChange={(v) => update({ compactMode: v })} />
+      <PillToggle label="Layout" offLabel="Standard" onLabel="Widescreen" checked={settings.widescreen} onChange={(v) => update({ widescreen: v })} />
 
       {/* AI Assistant */}
       {(() => {
