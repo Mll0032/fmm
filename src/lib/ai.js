@@ -138,71 +138,6 @@ function resolveModel(providerId) {
   return (stored && provider.models.find(m => m.id === stored)) ? stored : provider.models[0].id;
 }
 
-// --- Provider API calls ---
-
-async function callAnthropic(apiKey, model, messages, systemPrompt) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true",
-      "content-type": "application/json"
-    },
-    body: JSON.stringify({ model, max_tokens: 1024, system: systemPrompt, messages })
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error?.message || `Anthropic error ${res.status}`);
-  }
-  const data = await res.json();
-  return data.content[0].text;
-}
-
-async function callOpenAICompat(apiKey, model, messages, systemPrompt, baseUrl, extraHeaders = {}) {
-  const res = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      ...extraHeaders
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 1024,
-      messages: [{ role: "system", content: systemPrompt }, ...messages]
-    })
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error?.message || `API error ${res.status}`);
-  }
-  const data = await res.json();
-  return data.choices[0].message.content;
-}
-
-async function callGemini(apiKey, model, messages, systemPrompt) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-  const contents = messages.map(m => ({
-    role: m.role === "assistant" ? "model" : "user",
-    parts: [{ text: m.content }]
-  }));
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      system_instruction: { parts: [{ text: systemPrompt }] },
-      contents
-    })
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error?.message || `Gemini error ${res.status}`);
-  }
-  const data = await res.json();
-  return data.candidates[0].content.parts[0].text;
-}
-
 // --- Unified entry point ---
 
 export async function callAI(messages, systemPrompt) {
@@ -215,21 +150,17 @@ export async function callAI(messages, systemPrompt) {
 
   const model = resolveModel(providerId);
 
-  switch (providerId) {
-    case "anthropic":
-      return callAnthropic(apiKey, model, messages, systemPrompt);
-    case "openai":
-      return callOpenAICompat(apiKey, model, messages, systemPrompt, "https://api.openai.com/v1");
-    case "groq":
-      return callOpenAICompat(apiKey, model, messages, systemPrompt, "https://api.groq.com/openai/v1");
-    case "openrouter":
-      return callOpenAICompat(apiKey, model, messages, systemPrompt, "https://openrouter.ai/api/v1", {
-        "HTTP-Referer": window.location.origin,
-        "X-Title": "Fizzrix's Massive Modulatorium"
-      });
-    case "gemini":
-      return callGemini(apiKey, model, messages, systemPrompt);
-    default:
-      throw new Error("Unsupported provider.");
+  const res = await fetch('/api/ai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider: providerId, apiKey, model, messages, systemPrompt }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `API error ${res.status}`);
   }
+
+  const data = await res.json();
+  return data.text;
 }
