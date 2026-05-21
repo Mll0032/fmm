@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { SettingsStore } from "../state/settingsStore";
+import { SettingsStore, applySettings } from "../state/settingsStore";
+import { saveUserSettings } from "../lib/supabase.js";
 import { ModulesStore } from "../state/modulesStore";
 import {
   getApiKey, setApiKey,
@@ -30,33 +31,12 @@ export default function Settings() {
   const [showImgKey, setShowImgKey] = useState(false);
   const [imgKeySaved, setImgKeySaved] = useState(() => !!localStorage.getItem("fizzrix.imagegen.apikey"));
 
-  useEffect(() => { applyTheme(settings); }, [settings]);
-
-  function applyTheme(s) {
-    const root = document.documentElement;
-    let mode = s.theme;
-    if (s.theme === "system") {
-      mode = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-    }
-    root.dataset.theme = mode;
-    root.dataset.highContrast = s.highContrast ? "true" : "false";
-    root.style.setProperty(
-  "--font-scale",
-  s.fontSize === "small"
-    ? "0.9"
-    : s.fontSize === "large"
-    ? "1.15"
-    : s.fontSize === "xxl"
-    ? "1.35"
-    : "1"
-);
-    root.dataset.reducedMotion = s.reducedMotion ? "true" : "false";
-    root.dataset.widescreen = s.widescreen ? "true" : "false";
-  }
+  useEffect(() => { applySettings(settings); }, [settings]);
 
   function update(updates) {
     const newSettings = SettingsStore.set(updates);
     setSettings(newSettings);
+    saveUserSettings(newSettings);
   }
 
   function resetData() {
