@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
+import { useData } from "../hooks/useData.js";
 import { getLibraryEntries, removeFromLibrary } from "../lib/supabase.js";
-import { ModulesStore } from "../state/modulesStore.js";
 
 const CATEGORY_LABEL = { "one-shot": "One‑Shot", "campaign": "Campaign" };
 
@@ -11,6 +11,7 @@ function formatDate(iso) {
 
 export default function Library() {
   const { user } = useAuth();
+  const { importModule } = useData();
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -31,7 +32,7 @@ export default function Library() {
   const handleAdd = useCallback(async (entry) => {
     setAddingId(entry.id);
     try {
-      await ModulesStore.importModule({
+      await importModule({
         name: entry.module_name,
         category: entry.module_category,
         data: entry.module_data,
@@ -42,7 +43,7 @@ export default function Library() {
     } finally {
       setAddingId(null);
     }
-  }, []);
+  }, [importModule]);
 
   const handleRemove = useCallback(async (entry) => {
     if (!confirm(`Remove "${entry.module_name}" from the library? Others will no longer see it.`)) return;
