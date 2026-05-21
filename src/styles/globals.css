@@ -20,10 +20,13 @@
   animation: none !important;
 }
 
-/* Compact mode */
-:root[data-compact-mode="true"] {
-  --radius: 6px;
-  --maxw: 1000px;
+/* Widescreen mode */
+:root[data-widescreen="true"] {
+  --maxw: 100%;
+}
+
+:root[data-widescreen="true"] .container {
+  padding: 0 8px;
 }
 
 
