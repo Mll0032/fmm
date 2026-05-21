@@ -103,7 +103,7 @@ export default function About() {
         <div style={sectionStyle}>
           <h3 style={sectionTitleStyle}>Development Journey</h3>
           <p style={textStyle}>
-            This project started from a simple need: better organization of D&D campaign materials. 
+            This project started from a simple need: better organization of TTRPG campaign materials. 
             Traditional methods like spreadsheets and documents felt clunky and disconnected. 
             I wanted something visual, interactive, and designed specifically for the way DMs think and work.
           </p>
