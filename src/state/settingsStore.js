@@ -5,7 +5,7 @@ const defaultSettings = {
   highContrast: false,
   fontSize: "medium", // 'small' | 'medium' | 'large' | 'xxl'
   reducedMotion: false,
-  compactMode: false
+  widescreen: false
 };
 
 function read() {
