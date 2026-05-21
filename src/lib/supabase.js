@@ -98,6 +98,28 @@ export async function saveSoundboard(moduleId, bites) {
   if (error) console.error('Error saving soundboard:', error)
 }
 
+// ── User Settings ─────────────────────────────────────────────────────────────
+
+export async function getUserSettings() {
+  const { data, error } = await supabase
+    .from('user_settings')
+    .select('settings')
+    .single();
+  if (error) return null;
+  return data?.settings || null;
+}
+
+export async function saveUserSettings(settings) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  await supabase
+    .from('user_settings')
+    .upsert(
+      { user_id: user.id, settings, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    );
+}
+
 // ── Library ───────────────────────────────────────────────────────────────────
 
 export async function publishToLibrary(module, ownerName, system = '') {
