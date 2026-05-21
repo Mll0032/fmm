@@ -101,7 +101,7 @@ export async function saveSoundboard(moduleId, bites) {
 
 // ── Library ───────────────────────────────────────────────────────────────────
 
-export async function publishToLibrary(module, ownerName) {
+export async function publishToLibrary(module, ownerName, system = '') {
   const { data: { user } } = await supabase.auth.getUser();
   const { data, error } = await supabase
     .from('library')
@@ -111,6 +111,7 @@ export async function publishToLibrary(module, ownerName) {
       module_name: module.name,
       module_category: module.category,
       module_data: module.data,
+      system: system.trim(),
     }])
     .select()
     .single();
