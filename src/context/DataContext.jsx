@@ -261,6 +261,17 @@ export function DataProvider({ children }) {
     }
   }, []);
 
+  const importModule = useCallback(async ({ name, category, data }) => {
+    try {
+      const module = await ModulesStore.importModule({ name, category, data });
+      dispatch({ type: 'ADD_MODULE', module });
+      return module;
+    } catch (error) {
+      console.error('Error importing module:', error);
+      throw error;
+    }
+  }, []);
+
   const updateModule = useCallback(async (id, updateFn) => {
     try {
       const module = await ModulesStore.updateData(id, updateFn);
@@ -397,6 +408,7 @@ export function DataProvider({ children }) {
     loadModules,
     loadSessions,
     addModule,
+    importModule,
     updateModule,
     renameModule,
     removeModule,
