@@ -62,8 +62,8 @@ function Modules() {
       try {
         await removeModule(id);
       } catch (error) {
-        console.error('Error deleting module:', error);
-        alert('Error deleting module. Please try again.');
+        console.error('Error deleting module:', error.message ?? error);
+        alert('Error deleting module: ' + (error.message ?? 'Please try again.'));
       }
     }
   }, [removeModule]);
