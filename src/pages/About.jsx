@@ -12,8 +12,8 @@ export default function About() {
           <div style={developerSectionStyle}>
             <div style={photoPlaceholderStyle}>
               {/* Photo - replace the URL below with your actual photo URL */}
-              <img 
-                src="https://media.licdn.com/dms/image/v2/C5603AQGbx1i-xFtWBQ/profile-displayphoto-shrink_400_400/profile-displayphoto-shrink_400_400/0/1626375868743?e=1759968000&v=beta&t=O4BQkc7vcx-IkCaRMkxzwVQIEnrKld3QWZj0f3VE9Jk" 
+              <img
+                src={headshot}
                 alt="Matthew - Developer"
                 style={photoImageStyle}
               />
@@ -21,12 +21,12 @@ export default function About() {
             <div style={bioStyle}>
               <h3 style={sectionTitleStyle}>Meet the Developer</h3>
               <p style={textStyle}>
-                Hi! I'm Matthew, a passionate developer and D&D enthusiast. I created Fizzrix’s Massive Modulatorium 
+                Hi! I'm Matthew, a passionate developer and TTRPG enthusiast. I created Fizzrix’s Massive Modulatorium 
                 to solve the challenge of organizing and running complex tabletop RPG campaigns. As both a developer 
                 and a long time player of TTRPGS, I understand the need for tools that make campaign management intuitive and efficient.
               </p>
               <p style={textStyle}>
-                When I'm not coding or playing D&D sessions, you can find me gaming, spending time with family, or on a mountain biking trail. 
+                When I'm not coding or playing TTRPG sessions, you can find me gaming, spending time with family, or on a mountain biking trail. 
                 I believe in building tools that bring people together and enhance creative storytelling.
               </p>
             </div>
@@ -141,7 +141,7 @@ export default function About() {
         {/* Footer */}
         <div style={footerStyle}>
           <p style={footerTextStyle}>
-            Built with ❤️ for the D&D community • Open to feedback and contributions
+            Built with ❤️ for the TTRPG community • Open to feedback and contributions
           </p>
           <div style={linksStyle}>
             <a href="https://github.com/Mll0032/fmm" style={linkStyle}>GitHub</a>
