@@ -29,6 +29,20 @@
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; }
+
+/* Tell the browser to render native select dropdowns in the app's current theme
+   so the options panel matches dark/light mode instead of always using OS defaults */
+:root[data-theme="light"] select { color-scheme: light; }
+:root[data-theme="dark"] select,
+:root:not([data-theme="light"]) select { color-scheme: dark; }
+
+select {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid color-mix(in oklab, var(--text) 15%, transparent);
+  border-radius: var(--radius);
+  font: inherit;
+}
 body {
   margin: 0;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
