@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useData } from "../hooks/useData.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { publishToLibrary } from "../lib/supabase.js";
+import { SYSTEMS } from "../lib/systems.js";
 
 const isTouch = window.matchMedia("(pointer: coarse)").matches;
 
@@ -29,6 +30,7 @@ function Modules() {
   const [category, setCategory] = useState("one-shot");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmPublish, setConfirmPublish] = useState(null); // module id pending confirm
+  const [publishSystem, setPublishSystem] = useState('');
   const [publishing, setPublishing] = useState(false);
   const [publishedIds, setPublishedIds] = useState(new Set()); // IDs published this session
 
@@ -76,15 +78,16 @@ function Modules() {
         user?.user_metadata?.name ||
         user?.email?.split('@')[0] ||
         'Anonymous';
-      await publishToLibrary(module, ownerName);
+      await publishToLibrary(module, ownerName, publishSystem);
       setPublishedIds(prev => new Set([...prev, module.id]));
       setConfirmPublish(null);
+      setPublishSystem('');
     } catch (err) {
       alert('Could not publish: ' + err.message);
     } finally {
       setPublishing(false);
     }
-  }, [user]);
+  }, [user, publishSystem]);
 
   return (
     <section style={{ padding: "20px 0" }}>
@@ -174,24 +177,32 @@ function Modules() {
 
                       {/* + Library / inline confirm */}
                       {confirmPublish === m.id ? (
-                        <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
-                          <span style={{ fontSize: "0.78rem", color: "var(--muted)", whiteSpace: "nowrap" }}>
-                            Share publicly?
-                          </span>
-                          <button
-                            onClick={() => handlePublish(m)}
-                            disabled={publishing}
-                            style={confirmYesBtn}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0, minWidth: 220 }}>
+                          <select
+                            autoFocus
+                            value={publishSystem}
+                            onChange={e => setPublishSystem(e.target.value)}
+                            style={systemInput}
                           >
-                            {publishing ? "…" : "Yes"}
-                          </button>
-                          <button
-                            onClick={() => setConfirmPublish(null)}
-                            disabled={publishing}
-                            style={confirmCancelBtn}
-                          >
-                            Cancel
-                          </button>
+                            <option value="">Select a system…</option>
+                            {SYSTEMS.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <button
+                              onClick={() => handlePublish(m)}
+                              disabled={publishing || !publishSystem.trim()}
+                              style={{ ...confirmYesBtn, opacity: publishing || !publishSystem.trim() ? 0.5 : 1 }}
+                            >
+                              {publishing ? "…" : "Share"}
+                            </button>
+                            <button
+                              onClick={() => { setConfirmPublish(null); setPublishSystem(''); }}
+                              disabled={publishing}
+                              style={confirmCancelBtn}
+                            >
+                              Cancel
+                            </button>
+                          </div>
                         </div>
                       ) : publishedIds.has(m.id) ? (
                         <span style={publishedBadge}>✓ In Library</span>
@@ -290,6 +301,17 @@ const libraryBtn = {
   fontSize: "0.82rem",
   whiteSpace: "nowrap",
   fontFamily: "inherit",
+};
+
+const systemInput = {
+  padding: "6px 10px",
+  borderRadius: "8px",
+  border: "1px solid color-mix(in oklab, var(--text) 15%, transparent)",
+  background: "var(--surface)",
+  color: "var(--text)",
+  fontSize: "0.8rem",
+  fontFamily: "inherit",
+  width: "100%",
 };
 
 const confirmYesBtn = {
