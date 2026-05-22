@@ -68,6 +68,12 @@ Fizzrix's Massive Modulatorium (FMM) is designed for Game Masters and tabletop R
    ```
    > **Note:** For local testing of the AI proxy, use `vercel dev` instead of `npm run dev`. The `/api/ai` endpoint requires the Vercel CLI.
 
+   To test on a tablet or other device on the same network, expose the server on your local IP:
+   ```bash
+   npm run dev -- --host
+   ```
+   Your terminal will show a network URL (e.g. `http://192.168.x.x:5173`) you can open on any device connected to the same Wi-Fi.
+
 6. **Open your browser**
    Navigate to `https://localhost:5173`
 
