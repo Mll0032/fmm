@@ -141,28 +141,32 @@ export default function DraggableGrid({
     setContainerSize(newSize);
   }, [positions, calculateContainerSize]);
 
-  // After every render, measure actual card heights from the DOM and expand the
-  // container if any card's real bottom edge exceeds the calculated height.
-  // useLayoutEffect runs before paint so there's no visible jump.
-  React.useLayoutEffect(() => {
-    if (!containerRef.current) return;
-    const children = Array.from(containerRef.current.children);
-    if (children.length === 0) return;
+  // Watch all cards for size changes — fires when content reflows after initial
+  // render, so the container always grows to fit actual card heights.
+  React.useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
 
-    let maxBottom = 0;
-    for (const child of children) {
-      maxBottom = Math.max(maxBottom, child.offsetTop + child.offsetHeight);
+    function measure() {
+      const children = Array.from(container.children);
+      if (children.length === 0) return;
+      let maxBottom = 0;
+      for (const child of children) {
+        maxBottom = Math.max(maxBottom, child.offsetTop + child.offsetHeight);
+      }
+      const requiredHeight = Math.max(600, maxBottom + GRID_SIZE * 4);
+      setContainerSize(prev =>
+        requiredHeight <= prev.height ? prev : { ...prev, height: requiredHeight }
+      );
     }
 
-    const padding = GRID_SIZE * 4;
-    const requiredHeight = Math.max(600, maxBottom + padding);
+    const ro = new ResizeObserver(measure);
+    ro.observe(container);
+    Array.from(container.children).forEach(c => ro.observe(c));
+    measure();
 
-    setContainerSize(prev => {
-      // Returning the same reference bails out of re-render — breaks the loop
-      if (requiredHeight <= prev.height) return prev;
-      return { ...prev, height: requiredHeight };
-    });
-  });
+    return () => ro.disconnect();
+  }, [items]);
 
   const handleDragEnd = useCallback(async (event) => {
     if (disabled || !onItemsChange) return;
